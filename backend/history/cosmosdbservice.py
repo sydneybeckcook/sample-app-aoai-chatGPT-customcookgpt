@@ -176,7 +176,7 @@ class CosmosConversationClient():
         ]
         query = f"SELECT * FROM c WHERE c.conversationId = @conversationId AND c.type='message' AND c.userId = @userId ORDER BY c.timestamp ASC"
         messages = []
-        async for item in self.container_client.query_items(query=query, parameters=parameters):
+        async for item in await self.container_client.query_items(query=query, parameters=parameters):
             messages.append(item)
 
         return messages
