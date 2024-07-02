@@ -50,6 +50,41 @@ class _UiSettings(BaseSettings):
     show_share_button: bool = True
 
 
+
+
+class _CosmosDBSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="AZURE_COSMOSDB_",
+        env_file=DOTENV_PATH,
+        extra="ignore",
+        env_ignore_empty=True
+    )
+
+    account: str
+    account_key: Optional[str] = None
+    local_endpoint: str
+    local_key: str
+
+    database: str
+    database_tokens:str
+    database_privacy_notice: str
+    database_settings: str
+
+
+    conversations_container: str
+    container_deleted_convos: str
+    container_shared_convos: str 
+    enable_feedback: bool = False
+
+    container_token_usage: str
+    container_token_user_privileges: str
+
+    container_responses: str
+    
+    container_settings: str
+
+
+
 class _ChatHistorySettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOSDB_",
@@ -58,12 +93,28 @@ class _ChatHistorySettings(BaseSettings):
         env_ignore_empty=True
     )
 
-    database: str
     account: str
     account_key: Optional[str] = None
+    local_endpoint: str
+    local_key: str
+
+    database: str
+    database_tokens:str
+    database_privacy_notice: str
+    database_settings: str
+
+
     conversations_container: str
+    container_deleted_convos: str
+    container_shared_convos: str 
     enable_feedback: bool = False
 
+    container_token_usage: str
+    container_token_user_privileges: str
+
+    container_responses: str
+    
+    container_settings: str
 
 class _PromptflowSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -661,6 +712,7 @@ class _BaseSettings(BaseSettings):
     auth_enabled: bool = False
     sanitize_answer: bool = False
     use_promptflow: bool = False
+    is_development: bool = False
 
 
 class _AppSettings(BaseModel):
@@ -673,6 +725,7 @@ class _AppSettings(BaseModel):
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
+    cosmos_db: Optional[_CosmosDBSettings] = None
 
     @model_validator(mode="after")
     def set_promptflow_settings(self) -> Self:
