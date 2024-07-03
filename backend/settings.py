@@ -41,11 +41,11 @@ class _UiSettings(BaseSettings):
         env_ignore_empty=True
     )
 
-    title: str = "Contoso"
+    title: str = "Custom CookGPT Beta"
     logo: Optional[str] = None
     chat_logo: Optional[str] = None
-    chat_title: str = "Start chatting"
-    chat_description: str = "This chatbot is configured to answer your questions"
+    chat_title: str = "Start exploring OpenAI models."
+    chat_description: str = "This private and internal chatbot is configured to respond to your prompts safely and securely. \n GPT-3.5 is the fastest model, great for most everyday tasks ($). \n GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$)."
     favicon: str = "/favicon.ico"
     show_share_button: bool = True
 
