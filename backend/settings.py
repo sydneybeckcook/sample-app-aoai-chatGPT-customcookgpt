@@ -45,7 +45,9 @@ class _UiSettings(BaseSettings):
     logo: Optional[str] = None
     chat_logo: Optional[str] = None
     chat_title: str = "Start exploring OpenAI models."
-    chat_description: str = "This private and internal chatbot is configured to respond to your prompts safely and securely. \n GPT-3.5 is the fastest model, great for most everyday tasks ($). \n GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$)."
+    chat_description: str = """This private and internal chatbot is configured to respond to your prompts safely and securely.
+    GPT-3.5 is the fastest model, great for most everyday tasks ($).
+    GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$)."""
     favicon: str = "/favicon.ico"
     show_share_button: bool = True
 
