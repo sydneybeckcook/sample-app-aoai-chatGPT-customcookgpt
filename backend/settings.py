@@ -173,6 +173,22 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
+
+
+    model_3: str
+    model_name_3: str
+    key_3: Optional[str] = None
+    resource_3: Optional[str] = None
+    endpoint_3: Optional[str] = None
+
+
+    model_4: str
+    model_name_4: str
+    key_4: Optional[str] = None
+    resource_4: Optional[str] = None
+    endpoint_4: Optional[str] = None
+
+
     
     @field_validator('tools', mode='before')
     @classmethod
