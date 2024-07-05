@@ -857,6 +857,36 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
+# uncomment after merging with the latest version
+# @bp.route("/api/share/<conversation_id>", methods=["GET"])
+# def share_conversation(conversation_id):
+#     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+#     user_id = authenticated_user['user_principal_id']
+
+#     shared_conversation_id = cosmos_conversation_client.share_conversation(user_id, conversation_id)
+    
+#     if shared_conversation_id:
+#         base_url = "http://127.0.0.1:5000" if is_development else f"https://{AZURE_WEBAPP_NAME}.cookmedical.com"
+#         shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
+#         return jsonify({"shareableLink": shareable_link})
+#     else:
+#         return jsonify({"error": "Unable to share conversation"}), 500
+    
+# @bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
+# def get_shared_conversation(shared_conversation_id):
+#     try:
+#         conversation = cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
+#         if not conversation:
+#             return jsonify({"error": "Shared conversation not found"}), 404
+
+#         # Return the conversation data as JSON
+#         return jsonify(conversation)
+#     except Exception as e:
+#         # Log the exception for debugging
+#         print(f"An error occurred while fetching the shared conversation: {e}")
+#         # Return an error response
+#         return jsonify({"error": "An internal server error occurred"}), 500
 
 
 app = create_app()
+
