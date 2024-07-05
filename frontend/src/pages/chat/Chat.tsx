@@ -63,6 +63,8 @@ const Chat = () => {
   const [clearingChat, setClearingChat] = useState<boolean>(false)
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
+  const [selectedModel, setSelectedModel] = useState('gpt-35-turbo-0125')
+
 
   const errorDialogContentProps = {
     type: DialogType.close,
@@ -80,6 +82,23 @@ const Chat = () => {
 
   const [ASSISTANT, TOOL, ERROR] = ['assistant', 'tool', 'error']
   const NO_CONTENT_ERROR = 'No content in messages object.'
+
+  const handleModelToggle = async (): Promise<void> => {
+    const newModelKey = selectedModel === 'gpt-35-turbo-0125' ? 'gpt-4o' :'gpt-35-turbo-0125';
+    setSelectedModel(newModelKey)
+
+    const res = await fetch('/change_model', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({selectedModel: newModelKey})
+    });
+
+    if (res.status !== 200){
+      console.error('Failed to change model.');
+    }
+  };
 
   useEffect(() => {
     if (
@@ -764,6 +783,29 @@ const Chat = () => {
       ) : (
         <Stack horizontal className={styles.chatRoot}>
           <div className={styles.chatContainer}>
+          <div className={styles.modelToggleContainer}>
+            <span className={styles.modelToggleLabel}>GPT Version</span>
+            <div className={styles.modelToggleButton} onClick={handleModelToggle}>
+              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35-turbo-0125' ? '5px' : '56px' }}></div>
+              <span 
+                className={`${styles.labelLeft} ${selectedModel === 'gpt-35-turbo-0125' ? styles.toggled : ''}`}
+                data-tooltip-html="<b>GPT-3.5:</b> Delivers efficient and accurate results suitable for most applications.<br><br>
+                                    <b>When to use:</b> Best for standard queries, where speed and cost efficiency are priorities."
+                data-tooltip-id="modelTooltip"
+              >
+                GPT-3.5
+              </span>
+              <span 
+                className={`${styles.labelRight} ${selectedModel === 'gpt-4o' ? styles.toggled : ''}`}
+                data-tooltip-html="<b>GPT-4:</b> Offers advanced comprehension and detailed responses, excelling in complex tasks.<br><br>
+                                    <b>When to use:</b> For in-depth analysis, intricate tasks, and where detail is paramount."
+                data-tooltip-id="modelTooltip"
+                data-html={true}
+              >
+                GPT-4
+              </span>
+            </div>
+          </div>
             {!messages || messages.length < 1 ? (
               <Stack className={styles.chatEmptyState}>
                 <img src={ui?.chat_logo ? ui.chat_logo : Contoso} className={styles.chatIcon} aria-hidden="true" />
