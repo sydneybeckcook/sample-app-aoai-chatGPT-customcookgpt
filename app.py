@@ -42,6 +42,7 @@ def create_app():
     app = Quart(__name__)
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.secret_key = os.environ.get("QUART_SECRET_KEY")
     return app
 
 
