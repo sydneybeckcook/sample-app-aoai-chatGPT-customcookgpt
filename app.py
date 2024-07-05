@@ -12,6 +12,7 @@ from quart import (
     request,
     send_from_directory,
     render_template,
+    session
 )
 
 from openai import AsyncAzureOpenAI
@@ -62,7 +63,6 @@ async def favicon():
 async def assets(path):
     return await send_from_directory("static/assets", path)
 
-
 # Debug settings
 DEBUG = os.environ.get("DEBUG", "false")
 if DEBUG.lower() == "true":
@@ -92,6 +92,66 @@ frontend_settings = {
 
 # Enable Microsoft Defender for Cloud Integration
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
+
+
+
+import logging
+from quart import request, session, jsonify
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+def get_model_configuration(selected_model):
+    model_configurations = {
+        "gpt-35-turbo-0125": {
+            "resource": app_settings.azure_openai.resource_3,
+            "model": app_settings.azure_openai.model_3,
+            "endpoint":app_settings.azure_openai.endpoint_3,
+            "key": app_settings.azure_openai.key_3,
+            "model_name": app_settings.azure_openai.model_name_3
+        },
+        "gpt-4o": {
+            "resource": app_settings.azure_openai.resource_4,
+            "model": app_settings.azure_openai.model_4,
+            "endpoint": app_settings.azure_openai.endpoint_4,
+            "key": app_settings.azure_openai.key_4,
+            "model_name": app_settings.azure_openai.model_name_4
+        }
+    }
+    return model_configurations.get(selected_model)
+
+def set_model_config_in_session(selected_model):
+    model_config = get_model_configuration(selected_model)
+    if model_config:
+        session["AZURE_OPENAI_RESOURCE"] = model_config["resource"]
+        session["AZURE_OPENAI_MODEL"] = model_config["model"]
+        session["AZURE_OPENAI_ENDPOINT"] = model_config["endpoint"]
+        session["AZURE_OPENAI_KEY"] = model_config["key"]
+        session["AZURE_OPENAI_MODEL_NAME"] = model_config["model_name"]
+        session["AZURE_OPENAI_SELECTED_MODEL"] = selected_model
+        session.modified = True
+        
+        logging.info(f"Model session set to: {selected_model}")
+        logging.info(f"Session updated with model config: {model_config}")
+        return True
+    else:
+        logging.error(f"Invalid model selected: {selected_model}")
+        return False
+
+@bp.route("/change_model", methods=["POST"])
+async def change_model():
+    data = await request.get_json()
+    selected_model = data.get("selectedModel")
+
+    logging.info(f"Received request to change model to: {selected_model}")
+
+    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    logging.info(f"Current selected model: {current_model}")
+
+    if set_model_config_in_session(selected_model):
+        return jsonify({"message": "Model changed successfully", "current_model": selected_model}), 200
+    else:
+        return jsonify({"error": "Invalid model selected", "current_model": current_model}), 400
 
 
 # Initialize Azure OpenAI Client
