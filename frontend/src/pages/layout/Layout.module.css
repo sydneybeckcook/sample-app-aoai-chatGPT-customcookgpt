@@ -21,6 +21,10 @@
   text-decoration: none;
 }
 
+.headerLogo{
+  margin-left: 40vw;
+}
+
 .headerTitle {
   font-style: normal;
   font-weight: 600;
