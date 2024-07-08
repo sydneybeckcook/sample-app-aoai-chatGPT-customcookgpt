@@ -154,97 +154,76 @@ def init_openai_client():
         raise e
 
 
-# def init_cosmosdb_client():
-#     cosmos_conversation_client = None
-#     if app_settings.chat_history:
-#         try:
-#             cosmos_endpoint = (
-#                 f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-#             )
-
-#             if not app_settings.chat_history.account_key:
-#                 credential = DefaultAzureCredential()
-#             else:
-#                 credential = app_settings.chat_history.account_key
-
-#             cosmos_conversation_client = CosmosConversationClient(
-#                 cosmosdb_endpoint=cosmos_endpoint,
-#                 credential=credential,
-#                 database_name=app_settings.chat_history.database,
-#                 container_name=app_settings.chat_history.conversations_container,
-#                 enable_message_feedback=app_settings.chat_history.enable_feedback,
-#             )
-#         except Exception as e:
-#             logging.exception("Exception in CosmosDB initialization", e)
-#             cosmos_conversation_client = None
-#             raise e
-#     else:
-#         logging.debug("CosmosDB not configured")
-
-#     return cosmos_conversation_client
-def init_cosmosdb_client():
-    cosmos_conversation_client = None
-    cosmos_token_client = None
-    cosmos_privacy_notice_client = None
-    cosmos_settings_client = None
-    logging.info(f"is_development: {app_settings.base_settings.is_development}")
-    if app_settings.chat_history:
-        try:
-            if app_settings.base_settings.is_development:
-                cosmosdb_endpoint = app_settings.chat_history.local_endpoint
-                cosmosdb_key = app_settings.chat_history.local_key
-                database_suffix = "_dev"
-                container_suffix = "_dev"
-            else:
-                cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-                cosmosdb_key = app_settings.chat_history.account_key
-                database_suffix = ""
-                container_suffix = ""
-
-            credentials= cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
-
-            cosmos_conversation_client = CosmosConversationClient(
-                cosmosdb_endpoint=cosmosdb_endpoint,
-                credential=credentials,
-                database_name=f"{app_settings.chat_history.database}{database_suffix}",
-                convos_container_name=f"{app_settings.chat_history.conversations_container}{container_suffix}",
-                deleted_convos_container_name=f"{app_settings.chat_history.container_deleted_convos}{container_suffix}",
-                shared_convos_container_name=f"{app_settings.chat_history.container_shared_convos}{container_suffix}",
-                enable_message_feedback= app_settings.chat_history.enable_feedback
-            )
-
-            cosmos_token_client = CosmosTokenClient(
-                cosmosdb_endpoint=cosmosdb_endpoint,
-                credential=credentials,
-                database_name=f"{app_settings.chat_history.database_tokens}{database_suffix}",
-                token_container_name=f"{app_settings.chat_history.container_token_usage}{container_suffix}",
-                user_privilege_container_name=f"{app_settings.chat_history.container_token_user_privileges}{container_suffix}"
-            )
-
-            cosmos_privacy_notice_client = CosmosPrivacyNoticeClient(
-                cosmosdb_endpoint=cosmosdb_endpoint,
-                credential=credentials,
-                database_name=f"{app_settings.chat_history.database_privacy_notice}{database_suffix}",
-                responses_container_name=f"{app_settings.chat_history.container_responses}{container_suffix}"
-            )
-
-            cosmos_settings_client = CosmosSettingsClient(
-                cosmosdb_endpoint=cosmosdb_endpoint,
-                credential=credentials,
-                database_name=f"{app_settings.chat_history.database_settings}{database_suffix}",
-                settings_container_name=f"{app_settings.chat_history.container_settings}{container_suffix}"
-            )
-        
-        except Exception as e:
-            logging.exception("Exception in CosmosDB initialization", e)
-            cosmos_conversation_client=None
-            cosmos_token_client=None
-            cosmos_privacy_notice_client=None
-            cosmos_settings_client=None
-            raise
+def prepare_cosmosdb_client_parameters():
+    if app_settings.base_settings.is_local:
+        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
+        cosmosdb_key = app_settings.chat_history.local_key
     else:
-        logging.debug("CosmosDB not configured")
-    return cosmos_conversation_client, cosmos_token_client, cosmos_privacy_notice_client, cosmos_settings_client
+        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
+        cosmosdb_key = app_settings.chat_history.account_key
+
+    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
+
+    return cosmosdb_endpoint, credentials
+
+def init_cosmos_conversation_client():
+    try:
+        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+        return CosmosConversationClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database}",
+            convos_container_name=f"{app_settings.chat_history.conversations_container}",
+            deleted_convos_container_name=f"{app_settings.chat_history.container_deleted_convos}",
+            shared_convos_container_name=f"{app_settings.chat_history.container_shared_convos}",
+            enable_message_feedback=app_settings.chat_history.enable_feedback
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosConversationClient initialization", e)
+        return None
+    
+
+def init_cosmos_token_client():
+    try:
+        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+        return CosmosTokenClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_tokens}",
+            token_container_name=f"{app_settings.chat_history.container_token_usage}",
+            user_privilege_container_name=f"{app_settings.chat_history.container_token_user_privileges}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosTokenClient initialization", e)
+        return None
+
+
+def init_cosmos_privacy_notice_client():
+    try:
+        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+
+        return CosmosPrivacyNoticeClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_privacy_notice}",
+            responses_container_name=f"{app_settings.chat_history.container_responses}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosPrivacyNoticeClient initialization", e)
+        return None
+    
+def init_cosmos_settings_client():
+    try:
+        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+        return CosmosSettingsClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_settings}",
+            settings_container_name=f"{app_settings.chat_history.container_settings}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosSettingsClient initialization", e)
+        return None
 
 def prepare_model_args(request_body, request_headers):
     request_messages = request_body.get("messages", [])
@@ -463,7 +442,7 @@ async def add_conversation():
 
     try:
         # make sure cosmos is configured
-        cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+        cosmos_conversation_client = init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -521,7 +500,7 @@ async def update_conversation():
 
     try:
         # make sure cosmos is configured
-        cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -565,7 +544,7 @@ async def update_conversation():
 async def update_message():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
-    cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
 
     ## check request for message_id
     request_json = await request.get_json()
@@ -622,7 +601,7 @@ async def delete_conversation():
             return jsonify({"error": "conversation_id is required"}), 400
 
         ## make sure cosmos is configured
-        cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -659,7 +638,7 @@ async def list_conversations():
     user_id = authenticated_user["user_principal_id"]
 
     ## make sure cosmos is configured
-    cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -689,7 +668,7 @@ async def get_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
-    cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -742,7 +721,7 @@ async def rename_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
-    cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -782,7 +761,7 @@ async def delete_all_conversations():
     # get conversations for user
     try:
         ## make sure cosmos is configured
-        cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -833,7 +812,7 @@ async def clear_messages():
             return jsonify({"error": "conversation_id is required"}), 400
 
         ## make sure cosmos is configured
-        cosmos_conversation_client,_,_,_ = init_cosmosdb_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -862,7 +841,7 @@ async def ensure_cosmos():
         return jsonify({"error": "CosmosDB is not configured"}), 404
 
     try:
-        cosmos_conversation_client, _, _, _ = init_cosmosdb_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         success, err = await cosmos_conversation_client.ensure()
         logging.info(err)
         if not cosmos_conversation_client or not success:
