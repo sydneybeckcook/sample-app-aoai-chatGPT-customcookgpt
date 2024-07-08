@@ -713,6 +713,7 @@ class _BaseSettings(BaseSettings):
     sanitize_answer: bool = False
     use_promptflow: bool = False
     is_development: bool = False
+    is_local: bool=False
 
 
 class _AppSettings(BaseModel):
