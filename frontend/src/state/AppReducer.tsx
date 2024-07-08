@@ -74,6 +74,16 @@ export const appStateReducer = (state: AppState, action: Action): AppState => {
           [action.payload.answerId]: action.payload.feedback
         }
       }
+      case 'UPDATE_CURRENT_USER_ID':
+        return {
+            ...state,
+            currentUserId: action.payload
+      }
+      case 'TOGGLE_RIGHT_WRAPPER_BUTTONS':
+        return {
+            ...state,
+            hideRightWrapperButtons: action.payload
+      }
     default:
       return state
   }

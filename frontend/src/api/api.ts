@@ -313,6 +313,37 @@ export const historyEnsure = async (): Promise<CosmosDBHealth> => {
   return response
 }
 
+export const getOrCreateUserSettings = async (userId: string) => {
+  try {
+      const response = await fetch(`/api/settings/${userId}`);
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+      return await response.json();
+  } catch (error) {
+      console.error('Error fetching settings:', error);
+  }
+};
+
+export const updateUserSettings = async (userId: string, systemMessage: string, temperature: number) => {
+  try {
+      const response = await fetch(`/api/settings/${userId}`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ systemMessage, temperature }),
+      });
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+      return await response.json();
+  } catch (error) {
+      console.error('Error updating settings:', error);
+  }
+};
+
+
 export const frontendSettings = async (): Promise<Response | null> => {
   const response = await fetch('/frontend_settings', {
     method: 'GET'

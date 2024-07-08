@@ -4,6 +4,7 @@ import os
 import logging
 import uuid
 import httpx
+from dotenv import load_dotenv
 from quart import (
     Blueprint,
     Quart,
@@ -35,7 +36,7 @@ from backend.utils import (
     format_pf_non_streaming_response,
 )
 from backend.usersettings import UserSettingsManager
-
+load_dotenv()
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
 
@@ -161,10 +162,13 @@ def init_openai_client():
     azure_openai_client = None
     try:
         # API version check
+        logging.debug(f"from app setting: {app_settings.azure_openai.preview_api_version}")
+        logging.debug(f"MINIMUM_SUPPORTED_AZURE_PREVIEW_API_VERSION: {MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}")
         if (
             app_settings.azure_openai.preview_api_version
             < MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
         ):
+            logging.debug("Raising Value Error for api preview version")
             raise ValueError(
                 f"The minimum supported Azure OpenAI preview API version is '{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
             )
@@ -174,6 +178,7 @@ def init_openai_client():
             not app_settings.azure_openai.endpoint and
             not app_settings.azure_openai.resource
         ):
+            
             raise ValueError(
                 "AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required"
             )
@@ -308,14 +313,130 @@ def init_cosmosdb_client():
         logging.debug("CosmosDB not configured")
     return cosmos_conversation_client, cosmos_token_client, cosmos_privacy_notice_client, cosmos_settings_client
 
-def prepare_model_args(request_body, request_headers):
+
+def prepare_cosmosdb_client_parameters():
+    if app_settings.base_settings.is_local:
+        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
+        cosmosdb_key = app_settings.chat_history.local_key
+    else:
+        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
+        cosmosdb_key = app_settings.chat_history.account_key
+
+    database_suffix = "_dev" if app_settings.base_settings.is_development else ""
+    container_suffix = "_dev" if app_settings.base_settings.is_development else ""
+
+    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
+
+    return cosmosdb_endpoint, credentials, database_suffix, container_suffix
+
+def init_cosmos_conversation_client():
+    try:
+        cosmosdb_endpoint, credentials, database_suffix, container_suffix = prepare_cosmosdb_client_parameters()
+        return CosmosConversationClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database}{database_suffix}",
+            convos_container_name=f"{app_settings.chat_history.conversations_container}{container_suffix}",
+            deleted_convos_container_name=f"{app_settings.chat_history.container_deleted_convos}{container_suffix}",
+            shared_convos_container_name=f"{app_settings.chat_history.container_shared_convos}{container_suffix}",
+            enable_message_feedback=app_settings.chat_history.enable_feedback
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosConversationClient initialization", e)
+        return None
+    
+
+def init_cosmos_token_client():
+    try:
+        cosmosdb_endpoint, credentials, database_suffix, container_suffix = prepare_cosmosdb_client_parameters()
+        return CosmosTokenClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_tokens}{database_suffix}",
+            token_container_name=f"{app_settings.chat_history.container_token_usage}{container_suffix}",
+            user_privilege_container_name=f"{app_settings.chat_history.container_token_user_privileges}{container_suffix}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosTokenClient initialization", e)
+        return None
+
+
+def init_cosmos_privacy_notice_client():
+    try:
+        cosmosdb_endpoint, credentials, database_suffix, container_suffix = prepare_cosmosdb_client_parameters()
+
+        return CosmosPrivacyNoticeClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_privacy_notice}{database_suffix}",
+            responses_container_name=f"{app_settings.chat_history.container_responses}{container_suffix}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosPrivacyNoticeClient initialization", e)
+        return None
+    
+def init_cosmos_settings_client():
+    try:
+        cosmosdb_endpoint, credentials, database_suffix, container_suffix = prepare_cosmosdb_client_parameters()
+        return CosmosSettingsClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_settings}{database_suffix}",
+            settings_container_name=f"{app_settings.chat_history.container_settings}{container_suffix}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosSettingsClient initialization", e)
+        return None
+
+
+async def check_or_create_user_settings(user_id):
+    logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
+    cosmos_settings_client = init_cosmos_settings_client()
+    try:
+        user_settings_manager = UserSettingsManager(cosmos_settings_client)
+        logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
+        user_settings = await user_settings_manager.get_user_settings(user_id)
+        logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
+
+        if not user_settings:
+            logging.debug("check_or_create_user_settings: No settings found, creating new settings")
+            default_system_message = app_settings.azure_openai.system_message
+            default_temperature = app_settings.azure_openai.temperature
+
+            user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
+            logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
+        logging.debug(f"user_settings: {user_settings}")
+        return user_settings
+    
+    except Exception as e :
+        logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
+        return {
+            "systemMessage": app_settings.azure_openai.system_message,
+            "temperature": app_settings.azure_openai.temperature
+        }
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+
+
+
+async def prepare_model_args(request_body, request_headers):
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    set_model_config_in_session(selected_model)
+
+    authenticated_user_details = get_authenticated_user_details(request_headers)
+    user_id = authenticated_user_details['user_principal_id']
+    user_settings = await check_or_create_user_settings(user_id)
+    user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
+    user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
+    
     request_messages = request_body.get("messages", [])
     messages = []
+
     if not app_settings.datasource:
         messages = [
             {
                 "role": "system",
-                "content": app_settings.azure_openai.system_message
+                "content": user_system_message
             }
         ]
 
@@ -328,6 +449,7 @@ def prepare_model_args(request_body, request_headers):
                 }
             )
 
+
     user_json = None
     if (MS_DEFENDER_ENABLED):
         authenticated_user_details = get_authenticated_user_details(request_headers)
@@ -336,16 +458,19 @@ def prepare_model_args(request_body, request_headers):
 
     model_args = {
         "messages": messages,
-        "temperature": app_settings.azure_openai.temperature,
+        "temperature": user_temperature,
         "max_tokens": app_settings.azure_openai.max_tokens,
         "top_p": app_settings.azure_openai.top_p,
         "stop": app_settings.azure_openai.stop_sequence,
         "stream": app_settings.azure_openai.stream,
-        "model": app_settings.azure_openai.model,
-        "user": user_json
+        "model": selected_model,
+        "user": user_json,
     }
 
     if app_settings.datasource:
+        logging.info(f"Request object: {request}")
+        logging.info(f"Request body {request_body}")
+        logging.info(f"Request headers {request_headers}")
         model_args["extra_body"] = {
             "data_sources": [
                 app_settings.datasource.construct_payload_configuration(
@@ -353,6 +478,15 @@ def prepare_model_args(request_body, request_headers):
                 )
             ]
         }
+        model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
+        logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
+        # embedding_dependency = app_settings.azure_openai.extract_embedding_dependency()
+        # if embedding_dependency:
+        #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
+        
+
+        
+        
 
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
@@ -434,7 +568,7 @@ async def send_chat_request(request_body, request_headers):
             filtered_messages.append(message)
             
     request_body['messages'] = filtered_messages
-    model_args = prepare_model_args(request_body, request_headers)
+    model_args = await prepare_model_args(request_body, request_headers)
 
     try:
         azure_openai_client = init_openai_client()
@@ -495,6 +629,9 @@ async def conversation_internal(request_body, request_headers):
             return jsonify({"error": str(ex)}), 500
 
 
+
+
+
 @bp.route("/conversation", methods=["POST"])
 async def conversation():
     if not request.is_json:
@@ -511,6 +648,39 @@ def get_frontend_settings():
     except Exception as e:
         logging.exception("Exception in /frontend_settings")
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
+async def user_settings(user_id):
+    cosmos_settings_client = init_cosmos_settings_client()
+    try:
+        user_settings_manager = UserSettingsManager(cosmos_settings_client)
+        if request.method == 'GET':
+            settings = await user_settings_manager.get_user_settings(user_id)
+            if settings is None: 
+                logging.info(f"Creating default settings for user_id: {user_id}")
+                await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
+            logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
+            return jsonify(settings)
+
+        elif request.method == 'POST':
+            new_settings = request.json
+            system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
+            temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
+            logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
+            updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
+            logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
+            return jsonify(updated_settings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+    
+
+
+
+
 
 
 ## Conversation History API ##

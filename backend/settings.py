@@ -168,7 +168,7 @@ class _AzureOpenAISettings(BaseSettings):
     logit_bias: Optional[dict] = None
     presence_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
     frequency_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
-    system_message: str = "You are an AI assistant that helps people find information."
+    system_message: str = "You are an AI assistant that helps Cook Medical employees find information."
     preview_api_version: str = MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
@@ -267,7 +267,7 @@ class _SearchCommonSettings(BaseSettings):
     include_contexts: Optional[List[str]] = ["citations", "intent"]
     vectorization_dimensions: Optional[int] = None
     role_information: str = Field(
-        default="You are an AI assistant that helps people find information.",
+        default="You are an AI assistant that helps Cook Medical employees find information.",
         validation_alias="AZURE_OPENAI_SYSTEM_MESSAGE"
     )
 
@@ -729,6 +729,7 @@ class _BaseSettings(BaseSettings):
     sanitize_answer: bool = False
     use_promptflow: bool = False
     is_development: bool = False
+    is_local: bool = False
 
 
 class _AppSettings(BaseModel):
@@ -741,7 +742,7 @@ class _AppSettings(BaseModel):
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
-    cosmos_db: Optional[_CosmosDBSettings] = None
+ 
 
     @model_validator(mode="after")
     def set_promptflow_settings(self) -> Self:
