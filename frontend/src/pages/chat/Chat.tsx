@@ -866,7 +866,7 @@ const Chat = () => {
                     aria-label="start a new chat button"
                   />
                 )}
-                <CommandBarButton
+                {/* <CommandBarButton
                   role="button"
                   styles={{
                     icon: {
@@ -897,7 +897,7 @@ const Chat = () => {
                   }
                   disabled={disabledButton()}
                   aria-label="clear chat button"
-                />
+                /> */}
                 <Dialog
                   hidden={hideErrorDialog}
                   onDismiss={handleErrorDialogClose}

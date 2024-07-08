@@ -1,5 +1,4 @@
-import React, { createContext, ReactNode, useEffect, 
-  useReducer } from 'react'
+import React, { createContext, ReactNode, useEffect, useReducer } from 'react'
 
 import {
   ChatHistoryLoadingState,
@@ -24,6 +23,9 @@ export interface AppState {
   currentChat: Conversation | null
   frontendSettings: FrontendSettings | null
   feedbackState: { [answerId: string]: Feedback.Neutral | Feedback.Positive | Feedback.Negative }
+  currentConversationId: string | null
+  currentUserId: string | null
+  hideRightWrapperButtons: boolean
 }
 
 export type Action =
@@ -44,6 +46,9 @@ export type Action =
       payload: { answerId: string; feedback: Feedback.Positive | Feedback.Negative | Feedback.Neutral }
     }
   | { type: 'GET_FEEDBACK_STATE'; payload: string }
+  | { type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: string | null }
+  | { type: 'UPDATE_CURRENT_USER_ID', payload: string | null }
+  | { type: 'TOGGLE_RIGHT_WRAPPER_BUTTONS', payload: boolean };
 
 const initialState: AppState = {
   isChatHistoryOpen: false,
@@ -56,7 +61,10 @@ const initialState: AppState = {
     status: CosmosDBStatus.NotConfigured
   },
   frontendSettings: null,
-  feedbackState: {}
+  feedbackState: {},
+  currentConversationId: null,
+  currentUserId: null,
+  hideRightWrapperButtons: false
 }
 
 export const AppStateContext = createContext<
