@@ -101,6 +101,24 @@ const Chat = () => {
   };
 
   useEffect(() => {
+    const fetchUserId = async () => {
+        try {
+            const response = await fetch('/get_user_id');
+            if (response.ok) {
+                const data = await response.json();
+                appStateContext?.dispatch({
+                    type: 'UPDATE_CURRENT_USER_ID',
+                    payload: data.userId,
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching user ID:', error);
+        }
+    };
+    fetchUserId();
+  }, []); 
+
+  useEffect(() => {
     if (
       appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.Working &&
       appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured &&

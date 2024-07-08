@@ -1,24 +1,30 @@
 import { useContext, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
-import { Dialog, Stack, TextField } from '@fluentui/react'
+import { Dialog, Stack, TextField, DefaultButton, Slider } from '@fluentui/react'
 import { CopyRegular } from '@fluentui/react-icons'
 
-import { CosmosDBStatus } from '../../api'
+import { CosmosDBStatus, getOrCreateUserSettings, updateUserSettings } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { HistoryButton, ShareButton } from '../../components/common/Button'
+import { HistoryButton, ShareButton, SettingsButton } from '../../components/common/Button'
 import { AppStateContext } from '../../state/AppProvider'
 
 import styles from './Layout.module.css'
 
 const Layout = () => {
   const [isSharePanelOpen, setIsSharePanelOpen] = useState<boolean>(false)
+  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState<boolean>(false)
   const [copyClicked, setCopyClicked] = useState<boolean>(false)
   const [copyText, setCopyText] = useState<string>('Copy URL')
   const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Hide chat history')
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Show chat history')
   const appStateContext = useContext(AppStateContext)
+  const currentUserId = appStateContext?.state.currentUserId;
   const ui = appStateContext?.state.frontendSettings?.ui
+  const defaultSystemMessage = import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE || "You are an AI assistant that helps Cook Medical employees find information.";
+  const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
+  const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
+  const [temperature, setTemperature] = useState(defaultTemperature);
 
   const handleShareClick = () => {
     setIsSharePanelOpen(true)
@@ -39,6 +45,40 @@ const Layout = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_CHAT_HISTORY' })
   }
 
+
+  const handleSettingsClick = async () => {
+    setIsSettingsPanelOpen(true);
+    if (currentUserId) {
+        const settings = await getOrCreateUserSettings(currentUserId);
+        if (settings) {
+            setSystemMessage(settings.systemMessage);
+            setTemperature(settings.temperature);
+        }
+    }
+  }
+
+  const handleSettingsPanelDismiss = () => {
+      setIsSettingsPanelOpen(false);
+
+      if (currentUserId) {
+          updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
+      }
+  }
+
+  const handleSystemMessageChange = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
+      setSystemMessage(newValue || '');
+  }
+
+  const handleTemperatureChange = (newValue: number) => {
+      setTemperature(newValue.toString());
+  }    
+
+  const resetToDefaults = () => {
+      setSystemMessage(defaultSystemMessage);
+      setTemperature(defaultTemperature);
+  }
+
+  
   useEffect(() => {
     if (copyClicked) {
       setCopyText('Copied URL')
@@ -83,6 +123,9 @@ const Layout = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
+            {!appStateContext?.state.hideRightWrapperButtons && (
+              <SettingsButton onClick={handleSettingsClick} text="Settings" />
+            )}
             {ui?.show_share_button && <ShareButton onClick={handleShareClick} text={shareLabel} />}
           </Stack>
         </Stack>
@@ -125,7 +168,70 @@ const Layout = () => {
           </div>
         </Stack>
       </Dialog>
+      <Dialog 
+        onDismiss={handleSettingsPanelDismiss}
+        hidden={!isSettingsPanelOpen}
+        dialogContentProps={{
+            title: "Settings",
+        }}
+        styles={{
+            
+            main: [{
+                selectors: {
+                  ['@media (min-width: 700px)']: {
+                    maxWidth: '900px',
+                    background: "#FFFFFF",
+                    boxShadow: "0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)",
+                    borderRadius: "8px",
+                    maxHeight: '800px',
+                  }
+                }
+              }]
+        }}
+      >
+      <div>
+        <TextField
+            label="System Message"
+            multiline
+            rows={3}
+            value={systemMessage}
+            onChange={handleSystemMessageChange}
+        />
+        <br></br>
+        <Slider
+            label="Temperature"
+            min={0}
+            max={1}
+            step={0.1}
+            value={parseFloat(temperature)}
+            onChange={handleTemperatureChange}
+            showValue
+        />
+        <br></br>
+        <br></br>
+        <DefaultButton
+            text="Reset to Defaults"
+            onClick={resetToDefaults}
+            styles={{
+                root: {
+                    backgroundColor: 'red',
+                    borderColor: 'red',
+                    color: 'white',
+                },
+                rootHovered: {
+                    backgroundColor: 'darkred',
+                    borderColor: 'darkred',
+                    color: 'white',
+                }
+            }}
+            />
+      </div>
+      </Dialog>
     </div>
+
+    
+    
+
   )
 }
 
