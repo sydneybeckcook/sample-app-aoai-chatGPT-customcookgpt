@@ -4,7 +4,8 @@
   border-radius: 4px;
   background: radial-gradient(109.81% 107.82% at 100.1% 90.19%, #0f6cbd 33.63%, #2d87c3 70.31%, #8dddd8 100%);
   padding: 5px 12px;
-}
+  transition: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%) 2s ease-in-out 100ms;
+} /*added transition css rule*/
 
 .shareButtonRoot:hover {
   background: linear-gradient(135deg, #0f6cbd 0%, #2d87c3 51.04%, #8dddd8 100%);
