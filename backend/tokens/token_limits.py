@@ -63,7 +63,7 @@ class TokenLimits:
         if model_used.startswith('gpt-35-turbo'):
             token_record['gpt35InputTokens'] += usage_data['prompt_tokens']
             token_record['gpt35OutputTokens'] += usage_data['completion_tokens']
-        elif model_used.startswith('gpt-4'):
+        elif model_used.startswith('gpt-4o'):
             token_record['gpt4InputTokens'] += usage_data['prompt_tokens']
             token_record['gpt4OutputTokens'] += usage_data['completion_tokens']
         else:

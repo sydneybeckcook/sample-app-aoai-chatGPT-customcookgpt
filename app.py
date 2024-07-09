@@ -110,7 +110,7 @@ logging.basicConfig(level=logging.INFO)
 
 def get_model_configuration(selected_model):
     model_configurations = {
-        "gpt-35-turbo-0125": {
+        "gpt-35-turbo": {
             "resource": app_settings.azure_openai.resource_3,
             "model": app_settings.azure_openai.model_3,
             "endpoint":app_settings.azure_openai.endpoint_3,
@@ -152,7 +152,7 @@ async def change_model():
 
     logging.info(f"Received request to change model to: {selected_model}")
 
-    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
     logging.info(f"Current selected model: {current_model}")
 
     if set_model_config_in_session(selected_model):
@@ -340,7 +340,7 @@ async def check_or_create_user_settings(user_id):
 
 
 async def prepare_model_args(request_body, request_headers):
-    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
     set_model_config_in_session(selected_model)
 
     authenticated_user_details = get_authenticated_user_details(request_headers)
