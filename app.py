@@ -537,10 +537,11 @@ async def stream_chat_request(request_body, request_headers):
 async def check_user_token_limits(request_headers):
     cosmos_token_client = init_cosmos_token_client()
     try:
+        logging.debug("checking user token limit")
         user_details = get_authenticated_user_details(request_headers)
         user_id = user_details['user_principal_id']
         token_privileges = TokenPrivileges(cosmos_token_client)
-        user_privilege_type = token_privileges.check_user_token_privileges(request_headers)
+        user_privilege_type = await token_privileges.check_user_token_privileges(request_headers)
         logging.debug(f"user_privilege_type: {user_privilege_type}")
 
         if user_privilege_type == 'super':
@@ -551,12 +552,13 @@ async def check_user_token_limits(request_headers):
         logging.debug(f"daily_limit: {daily_limit}")
         token_limits = TokenLimits(cosmos_token_client)
         today = datetime.utcnow().date().isoformat()
-        current_cost = token_limits.check_token_costs(user_id, today, today)
+        current_cost = await token_limits.check_token_costs(user_id, today, today)
         logging.debug(f"current_cost: {current_cost}")
 
         if current_cost > daily_limit:
+            logging.error(f"error: Token limit exceeded")
             return jsonify({"error": "Token limit exceeded"}), 403
-
+        logging.debug("User's token limit not exceeded, returning None")
         return None
     finally:
         await cosmos_token_client.cosmosdb_client.close()
