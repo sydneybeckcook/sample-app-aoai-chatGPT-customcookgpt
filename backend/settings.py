@@ -50,41 +50,6 @@ class _UiSettings(BaseSettings):
     show_share_button: bool = True
 
 
-
-
-class _CosmosDBSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="AZURE_COSMOSDB_",
-        env_file=DOTENV_PATH,
-        extra="ignore",
-        env_ignore_empty=True
-    )
-
-    account: str
-    account_key: Optional[str] = None
-    local_endpoint: str
-    local_key: str
-
-    database: str
-    database_tokens:str
-    database_privacy_notice: str
-    database_settings: str
-
-
-    conversations_container: str
-    container_deleted_convos: str
-    container_shared_convos: str 
-    enable_feedback: bool = False
-
-    container_token_usage: str
-    container_token_user_privileges: str
-
-    container_responses: str
-    
-    container_settings: str
-
-
-
 class _ChatHistorySettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOSDB_",

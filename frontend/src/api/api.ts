@@ -326,6 +326,7 @@ export const getOrCreateUserSettings = async (userId: string) => {
 };
 
 export const updateUserSettings = async (userId: string, systemMessage: string, temperature: number) => {
+  console.log(`Updating user settings for userId: ${userId} with systemMessage: ${systemMessage} and temperature: ${temperature}`);
   try {
       const response = await fetch(`/api/settings/${userId}`, {
           method: 'POST',
@@ -335,6 +336,8 @@ export const updateUserSettings = async (userId: string, systemMessage: string, 
           body: JSON.stringify({ systemMessage, temperature }),
       });
       if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error updating settings:', response.status, response.statusText, errorText);
           throw new Error('Network response was not ok');
       }
       return await response.json();

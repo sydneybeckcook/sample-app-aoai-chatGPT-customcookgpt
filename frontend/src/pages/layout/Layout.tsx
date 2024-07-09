@@ -48,34 +48,39 @@ const Layout = () => {
 
   const handleSettingsClick = async () => {
     setIsSettingsPanelOpen(true);
+    console.log('currentUserId:', {currentUserId})
     if (currentUserId) {
-        const settings = await getOrCreateUserSettings(currentUserId);
-        if (settings) {
-            setSystemMessage(settings.systemMessage);
-            setTemperature(settings.temperature);
-        }
+      console.log('currentUserId:', 'true')
+      const settings = await getOrCreateUserSettings(currentUserId);
+      console.log("settings", settings)
+      if (settings) {
+          setSystemMessage(settings.systemMessage);
+          setTemperature(settings.temperature);
+      }
     }
   }
 
   const handleSettingsPanelDismiss = () => {
-      setIsSettingsPanelOpen(false);
+    console.log('Dismissing settings panel with values:', { currentUserId, systemMessage, temperature });
+    setIsSettingsPanelOpen(false);
 
-      if (currentUserId) {
-          updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
-      }
+    if (currentUserId) {
+        console.log("Updating User Settings with values:", { currentUserId, systemMessage, temperature })
+        updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
+    }
   }
 
   const handleSystemMessageChange = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
-      setSystemMessage(newValue || '');
+    setSystemMessage(newValue || '');
   }
 
   const handleTemperatureChange = (newValue: number) => {
-      setTemperature(newValue.toString());
+    setTemperature(newValue.toString());
   }    
 
   const resetToDefaults = () => {
-      setSystemMessage(defaultSystemMessage);
-      setTemperature(defaultTemperature);
+    setSystemMessage(defaultSystemMessage);
+    setTemperature(defaultTemperature);
   }
 
   
