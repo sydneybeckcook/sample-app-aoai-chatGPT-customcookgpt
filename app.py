@@ -147,7 +147,9 @@ def set_model_config_in_session(selected_model):
 
 @bp.route("/change_model", methods=["POST"])
 async def change_model():
+    logging.info("Changing model...")
     data = await request.get_json()
+    logging.info(f"data: {data}")
     selected_model = data.get("selectedModel")
 
     logging.info(f"Received request to change model to: {selected_model}")
