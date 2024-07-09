@@ -60,7 +60,7 @@ class TokenLimits:
             if not token_record:
                 raise Exception("Failed to create a new token record")
 
-        if model_used.startswith('gpt-35-turbo-16k'):
+        if model_used.startswith('gpt-35-turbo'):
             token_record['gpt35InputTokens'] += usage_data['prompt_tokens']
             token_record['gpt35OutputTokens'] += usage_data['completion_tokens']
         elif model_used.startswith('gpt-4'):

@@ -1,3 +1,5 @@
+
+from datetime import datetime
 import copy
 import json
 import os
@@ -36,6 +38,8 @@ from backend.utils import (
     format_pf_non_streaming_response,
 )
 from backend.usersettings import UserSettingsManager
+from backend.tokens.token_limits import TokenLimits
+from backend.tokens.token_privileges import TokenPrivileges
 load_dotenv()
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -529,8 +533,41 @@ async def stream_chat_request(request_body, request_headers):
     return generate()
 
 
+
+async def check_user_token_limits(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    try:
+        user_details = get_authenticated_user_details(request_headers)
+        user_id = user_details['user_principal_id']
+        token_privileges = TokenPrivileges(cosmos_token_client)
+        user_privilege_type = token_privileges.check_user_token_privileges(request_headers)
+        logging.debug(f"user_privilege_type: {user_privilege_type}")
+
+        if user_privilege_type == 'super':
+            daily_limit = app_settings.base_settings.daily_token_cost_limit_super
+        else:
+            daily_limit = app_settings.base_settings.daily_token_cost_limit_regular
+        
+        logging.debug(f"daily_limit: {daily_limit}")
+        token_limits = TokenLimits(cosmos_token_client)
+        today = datetime.utcnow().date().isoformat()
+        current_cost = token_limits.check_token_costs(user_id, today, today)
+        logging.debug(f"current_cost: {current_cost}")
+
+        if current_cost > daily_limit:
+            return jsonify({"error": "Token limit exceeded"}), 403
+
+        return None
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
+
+
 async def conversation_internal(request_body, request_headers):
     try:
+        token_limits_error_msg = await check_user_token_limits(request_headers)
+        if token_limits_error_msg:
+            return token_limits_error_msg
+        
         if app_settings.azure_openai.stream:
             result = await stream_chat_request(request_body, request_headers)
             response = await make_response(format_as_ndjson(result))

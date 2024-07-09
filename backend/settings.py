@@ -695,6 +695,8 @@ class _BaseSettings(BaseSettings):
     use_promptflow: bool = False
     is_development: bool = False
     is_local: bool = False
+    daily_token_cost_limit_super: float = 1.0
+    daily_token_cost_limit_regular: float = 0.25
 
 
 class _AppSettings(BaseModel):
