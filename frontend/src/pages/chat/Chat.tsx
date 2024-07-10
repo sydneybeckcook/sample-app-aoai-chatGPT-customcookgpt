@@ -12,7 +12,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 import styles from './Chat.module.css'
-import Contoso from '../../assets/Contoso.svg'
+import CookGPTLogo from '../../assets/CookGPTLogo.svg'
 import { XSSAllowTags } from '../../constants/sanatizeAllowables'
 
 import {
@@ -766,9 +766,13 @@ const Chat = () => {
           <div className={styles.chatContainer}>
             {!messages || messages.length < 1 ? (
               <Stack className={styles.chatEmptyState}>
-                <img src={ui?.chat_logo ? ui.chat_logo : Contoso} className={styles.chatIcon} aria-hidden="true" />
-                <h1 className={styles.chatEmptyStateTitle}>{ui?.chat_title}</h1>
-                <h2 className={styles.chatEmptyStateSubtitle}>{ui?.chat_description}</h2>
+                <img src={ui?.chat_logo ? ui.chat_logo : CookGPTLogo} className={styles.chatIcon} aria-hidden="true" />
+                <h1 className={styles.chatEmptyStateTitle}>Start exploring OpenAI models with Cook Data.</h1>
+                <h2 className={styles.chatEmptyStateSubtitle}>
+                  This private and internal chatbot is configured to respond to your prompts safely and securely.<br /><br />
+                  GPT-3.5 is the fastest model, great for most everyday tasks ($).<br /><br />
+                  GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$).
+                </h2>
               </Stack>
             ) : (
               <div className={styles.chatMessageStream} style={{ marginBottom: isLoading ? '40px' : '0px' }} role="log">
