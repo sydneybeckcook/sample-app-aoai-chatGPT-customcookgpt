@@ -21,6 +21,10 @@
   text-decoration: none;
 }
 
+.headerLogo{
+  align-self: start;
+}
+
 .headerTitle {
   font-style: normal;
   font-weight: 600;
