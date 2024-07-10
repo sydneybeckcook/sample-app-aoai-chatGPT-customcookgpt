@@ -113,7 +113,8 @@ class _AzureOpenAISettings(BaseSettings):
         env_prefix="AZURE_OPENAI_",
         env_file=DOTENV_PATH,
         extra='ignore',
-        env_ignore_empty=True
+        env_ignore_empty=True,
+        protected_namespaces=('settings_',)
     )
     
     model: str
@@ -139,19 +140,17 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
 
+    model_v3: str
+    model_name_v3: str
+    key_v3: Optional[str] = None
+    resource_v3: Optional[str] = None
+    endpoint_v3: Optional[str] = None
 
-    model_3: str
-    model_name_3: str
-    key_3: Optional[str] = None
-    resource_3: Optional[str] = None
-    endpoint_3: Optional[str] = None
-
-
-    model_4: str
-    model_name_4: str
-    key_4: Optional[str] = None
-    resource_4: Optional[str] = None
-    endpoint_4: Optional[str] = None
+    model_v4: str
+    model_name_v4: str
+    key_v4: Optional[str] = None
+    resource_v4: Optional[str] = None
+    endpoint_v4: Optional[str] = None
 
 
     

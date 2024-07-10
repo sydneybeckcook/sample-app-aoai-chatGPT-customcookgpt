@@ -107,18 +107,18 @@ logging.basicConfig(level=logging.INFO)
 def get_model_configuration(selected_model):
     model_configurations = {
         "gpt-35-turbo-0125": {
-            "resource": app_settings.azure_openai.resource_3,
-            "model": app_settings.azure_openai.model_3,
-            "endpoint":app_settings.azure_openai.endpoint_3,
-            "key": app_settings.azure_openai.key_3,
-            "model_name": app_settings.azure_openai.model_name_3
+            "resource": app_settings.azure_openai.resource_v3,
+            "model": app_settings.azure_openai.model_v3,
+            "endpoint":app_settings.azure_openai.endpoint_v3,
+            "key": app_settings.azure_openai.key_v3,
+            "model_name": app_settings.azure_openai.model_name_v3
         },
         "gpt-4o": {
-            "resource": app_settings.azure_openai.resource_4,
-            "model": app_settings.azure_openai.model_4,
-            "endpoint": app_settings.azure_openai.endpoint_4,
-            "key": app_settings.azure_openai.key_4,
-            "model_name": app_settings.azure_openai.model_name_4
+            "resource": app_settings.azure_openai.resource_v4,
+            "model": app_settings.azure_openai.model_v4,
+            "endpoint": app_settings.azure_openai.endpoint_v4,
+            "key": app_settings.azure_openai.key_v4,
+            "model_name": app_settings.azure_openai.model_name_v4
         }
     }
     return model_configurations.get(selected_model)
