@@ -342,6 +342,10 @@ async def check_or_create_user_settings(user_id):
 
 
 async def prepare_model_args(request_body, request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    token_limits = TokenLimits(cosmos_token_client)
+
+
     selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
     set_model_config_in_session(selected_model)
 
@@ -405,9 +409,6 @@ async def prepare_model_args(request_body, request_headers):
         logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
         model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
         logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
-        # embedding_dependency = app_settings.azure_openai.extract_embedding_dependency()
-        # if embedding_dependency:
-        #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
         
 
         
@@ -448,7 +449,7 @@ async def prepare_model_args(request_body, request_headers):
                     ]["authentication"][field] = "*****"
 
     logging.debug(f"REQUEST BODY: {json.dumps(model_args_clean, indent=4)}")
-
+    await cosmos_token_client.cosmosdb_client.close()
     return model_args
 
 
@@ -496,14 +497,37 @@ async def send_chat_request(request_body, request_headers):
     model_args = await prepare_model_args(request_body, request_headers)
     logging.debug(f"model_args: {model_args}")
 
+    cosmos_token_client = init_cosmos_token_client()
     try:
         azure_openai_client = init_openai_client()
         raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
         response = raw_response.parse()
+        logging.info(f"response: {response}")
         apim_request_id = raw_response.headers.get("apim-request-id") 
+
+        token_limits = TokenLimits(cosmos_token_client)
+        if app_settings.datasource:
+            usage_data = response.get("usage", {})
+            if usage_data:
+                await token_limits.update_usage_from_usage(
+                    request_headers=request_headers,
+                    usage_data=usage_data,
+                    model_used=model_args["model"]
+                )
+        else:
+            for message in model_args["messages"]:
+                await token_limits.update_usage_from_message(
+                    request_headers=request_headers,
+                    message=message["content"],
+                    model_used=model_args["model"],
+                    message_type="input"
+                )
+
     except Exception as e:
         logging.exception("Exception in send_chat_request")
         raise e
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
     return response, apim_request_id
 
@@ -527,9 +551,24 @@ async def complete_chat_request(request_body, request_headers):
 async def stream_chat_request(request_body, request_headers):
     response, apim_request_id = await send_chat_request(request_body, request_headers)
     history_metadata = request_body.get("history_metadata", {})
-    
+    cosmos_token_client = init_cosmos_token_client()
+    token_limits = TokenLimits(cosmos_token_client)
+    logging.info(f"response: {response}")
     async def generate():
         async for completionChunk in response:
+            logging.info(f"completionChunk: {completionChunk}")
+            model_used = completionChunk.get("model", app_settings.azure_openai.model_3)
+            choices = completionChunk.get("choice",[])
+            if choices and "delta" in choices[0]:
+                message_content = choices[0]["delta"].get("content" "")
+                if message_content:
+                    logging.info(f"message_content: {message_content}")
+                    await token_limits.update_usage_from_message(
+                        request_headers=request_headers,
+                        message=message_content,
+                        model_used=model_used,
+                        message_type="output"
+                    )
             yield format_stream_response(completionChunk, history_metadata, apim_request_id)
 
     return generate()
@@ -571,6 +610,10 @@ async def conversation_internal(request_body, request_headers):
         token_limits_error_msg = await check_user_token_limits(request_headers)
         if token_limits_error_msg:
             return token_limits_error_msg
+        
+
+        logging.info(f"conversation_internal: request_body: {request_body}")
+        logging.info(f"conversation_internal: reqeust_headers: {request_headers}")
         
         if app_settings.azure_openai.stream:
             result = await stream_chat_request(request_body, request_headers)
