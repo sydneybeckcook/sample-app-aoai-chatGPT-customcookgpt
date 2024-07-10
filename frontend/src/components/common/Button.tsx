@@ -5,7 +5,6 @@ import styles from './Button.module.css'
 interface ShareButtonProps {
   conversationId: string;
   onShareClick: (link: string) => void;
-
 }
 
 export const ShareButton: React.FC<ShareButtonProps> = ({  conversationId, onShareClick }) => {

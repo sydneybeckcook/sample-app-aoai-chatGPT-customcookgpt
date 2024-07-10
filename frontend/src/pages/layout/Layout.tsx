@@ -4,11 +4,8 @@ import { Dialog, Stack, TextField, DefaultButton, Slider  } from '@fluentui/reac
 import { CopyRegular } from '@fluentui/react-icons'
 
 import { CosmosDBStatus, getOrCreateUserSettings, updateUserSettings } from '../../api'
-import Contoso from '../../assets/Contoso.svg'
 import { HistoryButton, ShareButton, HelpButton, SettingsButton } from '../../components/common/Button'
-import { CosmosDBStatus } from '../../api'
 import CookLogo from '../../assets/CookLogo.svg'
-import { HistoryButton, ShareButton } from '../../components/common/Button'
 import { AppStateContext } from '../../state/AppProvider'
 
 import styles from './Layout.module.css'
@@ -137,7 +134,12 @@ const resetToDefaults = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
-            {ui?.show_share_button && <ShareButton onClick={handleShareClick} text={shareLabel} />}
+            {ui?.show_share_button && currentConversationId && (
+              <ShareButton
+                conversationId={currentConversationId}
+                onShareClick={handleShareClick}
+              />
+            )}
           </Stack>
         </Stack>
       </header>
