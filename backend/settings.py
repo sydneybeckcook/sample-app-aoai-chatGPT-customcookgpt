@@ -151,8 +151,7 @@ class _AzureOpenAISettings(BaseSettings):
     key_v4: Optional[str] = None
     resource_v4: Optional[str] = None
     endpoint_v4: Optional[str] = None
-
-
+    
     
     @field_validator('tools', mode='before')
     @classmethod
