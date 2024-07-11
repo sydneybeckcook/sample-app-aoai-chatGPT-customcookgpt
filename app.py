@@ -543,7 +543,7 @@ async def complete_chat_request(request_body, request_headers):
         if app_settings.datasource:
             usage_data = response.get("usage", {})
             if usage_data:
-                await token_limits.update_usage_from_usage(
+                await token_limits.update_usage_from_openai_response(
                     request_headers=request_headers,
                     usage_data=usage_data,
                     model_used=response.get("model", app_settings.azure_openai.model_v3)
@@ -573,7 +573,7 @@ async def stream_chat_request(request_body, request_headers):
     logging.info(f"response: {response}")
     async def generate():
         async for completionChunk in response:
-            logging.info(f"completionChunk: {completionChunk}")
+            print(f"completionChunk: {completionChunk}")
             choices = completionChunk.choices
             if choices and choices[0].delta:
                 message_content = choices[0].delta.content

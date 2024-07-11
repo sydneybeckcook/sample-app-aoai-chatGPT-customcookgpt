@@ -50,7 +50,7 @@ class TokenLimits:
 
         await self.cosmos_token_client.upsert_token_record(token_record)
     
-    async def update_usage_from_usage(self, request_headers, usage_data, model_used):
+    async def update_usage_from_openai_response(self, request_headers, usage_data, model_used):
         today = datetime.utcnow().date().isoformat()
         user_details = get_authenticated_user_details(request_headers)
         user_id = user_details['user_principal_id']
