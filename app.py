@@ -224,6 +224,55 @@ def init_cosmos_settings_client():
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
+    
+
+@bp.route("/get_user_id", methods=["GET"])
+def get_user_id():
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        return jsonify({"userId": user_id})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+
+@bp.route("/check_privacy_response", methods=["GET"])
+async def check_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        response = await cosmos_privacy_notice_client.check_user_response(user_id)
+        has_responded = response is not None
+        return jsonify({"hasResponded": has_responded})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
+
+@bp.route("/privacy_notice")
+def privacy_notice():
+    return send_from_directory('frontend', 'privacy_notice.txt')
+
+@bp.route("/record_privacy_response", methods=["POST"])
+async def record_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try:
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        data = request.json
+        response = data.get("response")
+        result = await cosmos_privacy_notice_client.record_user_response(user_id, response)
+        return jsonify(result)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
+
 
 def prepare_model_args(request_body, request_headers):
     request_messages = request_body.get("messages", [])
