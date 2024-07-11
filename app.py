@@ -157,19 +157,6 @@ async def change_model():
     else:
         return jsonify({"error": "Invalid model selected", "current_model": current_model}), 400
 
-
-
-@bp.route("/get_user_id", methods=["GET"])
-def get_user_id():
-    try: 
-        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-        user_id = authenticated_user['user_principal_id']
-        return jsonify({"userId": user_id})
-    except Exception as e:
-        print(f"An error occurred: {e}")  # Log the error
-        return jsonify({"error": "An internal server error occurred"})
-
-
 # Initialize Azure OpenAI Client
 def init_openai_client():
     azure_openai_client = None
@@ -312,6 +299,7 @@ def init_cosmos_settings_client():
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
+    
 @bp.route("/get_user_id", methods=["GET"])
 def get_user_id():
     try: 
