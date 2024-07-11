@@ -23,8 +23,10 @@ class TokenLimits:
             return {"error": "User not authenticated"}
 
         user_id = user_details['user_principal_id']
+        logging.info(f"update_usage_from_message: user_id: {user_id}")
         today = datetime.utcnow().date().isoformat()
         tokens = self.calculate_tokens(message)
+        logging.info(f"update_usage_from_message: tokens: {tokens}")
 
         token_record = await self.cosmos_token_client.get_token_usage(user_id, today)
 
@@ -33,12 +35,12 @@ class TokenLimits:
             if not token_record:
                 return {"error": "Failed to create a new token record"}
 
-        if model_used.startswith('gpt-35-turbo-16k'):
+        if model_used.startswith('gpt-35-turbo'):
             if message_type == 'input':
                 token_record['gpt35InputTokens'] += tokens
             elif message_type == 'output':
                 token_record['gpt35OutputTokens'] += tokens
-        elif model_used.startswith('gpt-4'):
+        elif model_used.startswith('gpt-4o'):
             if message_type == 'input':
                 token_record['gpt4InputTokens'] += tokens
             elif message_type == 'output':

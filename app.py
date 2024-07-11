@@ -111,18 +111,18 @@ logging.basicConfig(level=logging.INFO)
 def get_model_configuration(selected_model):
     model_configurations = {
         "gpt-35-turbo": {
-            "resource": app_settings.azure_openai.resource_3,
-            "model": app_settings.azure_openai.model_3,
-            "endpoint":app_settings.azure_openai.endpoint_3,
-            "key": app_settings.azure_openai.key_3,
-            "model_name": app_settings.azure_openai.model_name_3
+            "resource": app_settings.azure_openai.resource_v3,
+            "model": app_settings.azure_openai.model_v3,
+            "endpoint":app_settings.azure_openai.endpoint_v3,
+            "key": app_settings.azure_openai.key_v3,
+            "model_name": app_settings.azure_openai.model_name_v3
         },
         "gpt-4o": {
-            "resource": app_settings.azure_openai.resource_4,
-            "model": app_settings.azure_openai.model_4,
-            "endpoint": app_settings.azure_openai.endpoint_4,
-            "key": app_settings.azure_openai.key_4,
-            "model_name": app_settings.azure_openai.model_name_4
+            "resource": app_settings.azure_openai.resource_v4,
+            "model": app_settings.azure_openai.model_v4,
+            "endpoint": app_settings.azure_openai.endpoint_v4,
+            "key": app_settings.azure_openai.key_v4,
+            "model_name": app_settings.azure_openai.model_name_v4
         }
     }
     return model_configurations.get(selected_model)
@@ -217,7 +217,7 @@ def init_openai_client():
             )
 
         # Deployment
-        deployment = app_settings.azure_openai.model
+        deployment = session.get("AZURE_OPENAI_SELECTED_MODEL",app_settings.azure_openai.model_v3)
         if not deployment:
             raise ValueError("AZURE_OPENAI_MODEL is required")
 
@@ -535,6 +535,7 @@ async def complete_chat_request(request_body, request_headers):
             app_settings.promptflow.citations_field_name
         )
     else:
+        logging.info("Entering complete_chat_request")
         response, apim_request_id = await send_chat_request(request_body, request_headers)
         cosmos_token_client = init_cosmos_token_client()
         token_limits = TokenLimits(cosmos_token_client)
@@ -545,15 +546,16 @@ async def complete_chat_request(request_body, request_headers):
                 await token_limits.update_usage_from_usage(
                     request_headers=request_headers,
                     usage_data=usage_data,
-                    model_used=response.get("model", app_settings.azure_openai.model_3)
+                    model_used=response.get("model", app_settings.azure_openai.model_v3)
                 )
+
         else:
             message_content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
             if message_content:
                 await token_limits.update_usage_from_message(
                     request_headers=request_headers,
                     message=message_content,
-                    model_used=response.get("model", app_settings.azure_openai.model_3),
+                    model_used=response.get("model", app_settings.azure_openai.model_v3),
                     message_type="output"
                 )
 
@@ -563,6 +565,7 @@ async def complete_chat_request(request_body, request_headers):
 
 
 async def stream_chat_request(request_body, request_headers):
+    logging.info(f"Entering stream_chat_request")
     response, apim_request_id = await send_chat_request(request_body, request_headers)
     history_metadata = request_body.get("history_metadata", {})
     cosmos_token_client = init_cosmos_token_client()
@@ -1159,7 +1162,10 @@ async def generate_title(conversation_messages) -> str:
     try:
         azure_openai_client = init_openai_client()
         response = await azure_openai_client.chat.completions.create(
-            model=app_settings.azure_openai.model, messages=messages, temperature=1, max_tokens=64
+            model=app_settings.azure_openai.model_v3,
+            messages=messages, 
+            temperature=1, 
+            max_tokens=64
         )
 
         title = response.choices[0].message.content
