@@ -64,6 +64,26 @@ const Chat = () => {
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
 
+
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+        try {
+            const response = await fetch('/get_user_id');
+            if (response.ok) {
+                const data = await response.json();
+                appStateContext?.dispatch({
+                    type: 'UPDATE_CURRENT_USER_ID',
+                    payload: data.userId,
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching user ID:', error);
+        }
+    };
+    fetchUserId();
+}, []); 
+
   const errorDialogContentProps = {
     type: DialogType.close,
     title: errorMsg?.title,
