@@ -4,6 +4,7 @@ import os
 import logging
 import uuid
 import httpx
+from dotenv import load_dotenv
 from quart import (
     Blueprint,
     Quart,
@@ -12,6 +13,7 @@ from quart import (
     request,
     send_from_directory,
     render_template,
+    session
 )
 
 from openai import AsyncAzureOpenAI
@@ -33,7 +35,8 @@ from backend.utils import (
     convert_to_pf_format,
     format_pf_non_streaming_response,
 )
-
+from backend.usersettings import UserSettingsManager
+load_dotenv()
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
 
@@ -41,6 +44,7 @@ def create_app():
     app = Quart(__name__)
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.secret_key = os.environ.get("QUART_SECRET_KEY")
     return app
 
 
@@ -61,7 +65,6 @@ async def favicon():
 @bp.route("/assets/<path:path>")
 async def assets(path):
     return await send_from_directory("static/assets", path)
-
 
 # Debug settings
 DEBUG = os.environ.get("DEBUG", "false")
@@ -94,36 +97,111 @@ frontend_settings = {
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
 
 
+
+import logging
+from quart import request, session, jsonify
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+def get_model_configuration(selected_model):
+    model_configurations = {
+        "gpt-35": {
+            "resource": app_settings.azure_openai.resource_v3,
+            "model": app_settings.azure_openai.model_v3,
+            "endpoint":app_settings.azure_openai.endpoint_v3,
+            "key": app_settings.azure_openai.key_v3,
+            "model_name": app_settings.azure_openai.model_name_v3
+        },
+        "gpt-4o": {
+            "resource": app_settings.azure_openai.resource_v4,
+            "model": app_settings.azure_openai.model_v4,
+            "endpoint": app_settings.azure_openai.endpoint_v4,
+            "key": app_settings.azure_openai.key_v4,
+            "model_name": app_settings.azure_openai.model_name_v4
+        }
+    }
+    return model_configurations.get(selected_model)
+
+def set_model_config_in_session(selected_model):
+    model_config = get_model_configuration(selected_model)
+    if model_config:
+        session["AZURE_OPENAI_RESOURCE"] = model_config["resource"]
+        session["AZURE_OPENAI_MODEL"] = model_config["model"]
+        session["AZURE_OPENAI_ENDPOINT"] = model_config["endpoint"]
+        session["AZURE_OPENAI_KEY"] = model_config["key"]
+        session["AZURE_OPENAI_MODEL_NAME"] = model_config["model_name"]
+        session["AZURE_OPENAI_SELECTED_MODEL"] = selected_model
+        session.modified = True
+        
+        logging.info(f"Model session set to: {selected_model}")
+        logging.info(f"Session updated with model config: {model_config}")
+        return True
+    else:
+        logging.error(f"Invalid model selected: {selected_model}")
+        return False
+
+@bp.route("/change_model", methods=["POST"])
+async def change_model():
+    data = await request.get_json()
+    selected_model = data.get("selectedModel")
+
+    logging.info(f"Received request to change model to: {selected_model}")
+
+    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
+    logging.info(f"Current selected model: {current_model}")
+
+    if set_model_config_in_session(selected_model):
+        return jsonify({"message": "Model changed successfully", "current_model": selected_model}), 200
+    else:
+        return jsonify({"error": "Invalid model selected", "current_model": current_model}), 400
+
+
+
+@bp.route("/get_user_id", methods=["GET"])
+def get_user_id():
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        return jsonify({"userId": user_id})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+
+
 # Initialize Azure OpenAI Client
 def init_openai_client():
     azure_openai_client = None
     try:
         # API version check
+        logging.debug(f"from app setting: {app_settings.azure_openai.preview_api_version}")
+        logging.debug(f"MINIMUM_SUPPORTED_AZURE_PREVIEW_API_VERSION: {MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}")
         if (
             app_settings.azure_openai.preview_api_version
             < MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
         ):
+            logging.debug("Raising Value Error for api preview version")
             raise ValueError(
                 f"The minimum supported Azure OpenAI preview API version is '{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
             )
+        
+        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
+        set_model_config_in_session(selected_model)
 
         # Endpoint
         if (
-            not app_settings.azure_openai.endpoint and
-            not app_settings.azure_openai.resource
+            not app_settings.azure_openai.endpoint_v3 and
+            not app_settings.azure_openai.resource_v3
         ):
+            
             raise ValueError(
                 "AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required"
             )
 
-        endpoint = (
-            app_settings.azure_openai.endpoint
-            if app_settings.azure_openai.endpoint
-            else f"https://{app_settings.azure_openai.resource}.openai.azure.com/"
-        )
+        endpoint = session.get("AZURE_OPENAI_ENDPOINT")
 
         # Authentication
-        aoai_api_key = app_settings.azure_openai.key
+        aoai_api_key = session.get("AZURE_OPENAI_KEY")
         ad_token_provider = None
         if not aoai_api_key:
             logging.debug("No AZURE_OPENAI_KEY found, using Azure Entra ID auth")
@@ -132,7 +210,7 @@ def init_openai_client():
             )
 
         # Deployment
-        deployment = app_settings.azure_openai.model
+        deployment = session.get("AZURE_OPENAI_MODEL")
         if not deployment:
             raise ValueError("AZURE_OPENAI_MODEL is required")
 
@@ -154,6 +232,15 @@ def init_openai_client():
         raise e
 
 
+def prepare_cosmosdb_client_parameters():
+    if app_settings.base_settings.is_local:
+        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
+        cosmosdb_key = app_settings.chat_history.local_key
+    else:
+        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
+        cosmosdb_key = app_settings.chat_history.account_key
+
+    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
 def prepare_cosmosdb_client_parameters():
     if app_settings.base_settings.is_local:
         cosmosdb_endpoint = app_settings.chat_history.local_endpoint
@@ -200,7 +287,7 @@ def init_cosmos_token_client():
 
 def init_cosmos_privacy_notice_client():
     try:
-        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+        cosmosdb_endpoint, credentials= prepare_cosmosdb_client_parameters()
 
         return CosmosPrivacyNoticeClient(
             cosmosdb_endpoint=cosmosdb_endpoint,
@@ -214,7 +301,7 @@ def init_cosmos_privacy_notice_client():
     
 def init_cosmos_settings_client():
     try:
-        cosmosdb_endpoint, credentials = prepare_cosmosdb_client_parameters()
+        cosmosdb_endpoint, credentials= prepare_cosmosdb_client_parameters()
         return CosmosSettingsClient(
             cosmosdb_endpoint=cosmosdb_endpoint,
             credential=credentials,
@@ -225,14 +312,57 @@ def init_cosmos_settings_client():
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
 
-def prepare_model_args(request_body, request_headers):
+
+async def check_or_create_user_settings(user_id):
+    logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
+    cosmos_settings_client = init_cosmos_settings_client()
+    try:
+        user_settings_manager = UserSettingsManager(cosmos_settings_client)
+        logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
+        user_settings = await user_settings_manager.get_user_settings(user_id)
+        logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
+
+        if not user_settings:
+            logging.debug("check_or_create_user_settings: No settings found, creating new settings")
+            default_system_message = app_settings.azure_openai.system_message
+            default_temperature = app_settings.azure_openai.temperature
+
+            user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
+            logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
+        logging.debug(f"user_settings: {user_settings}")
+        return user_settings
+    
+    except Exception as e :
+        logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
+        return {
+            "systemMessage": app_settings.azure_openai.system_message,
+            "temperature": app_settings.azure_openai.temperature
+        }
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+
+
+
+async def prepare_model_args(request_body, request_headers):
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
+    set_model_config_in_session(selected_model)
+
+    authenticated_user_details = get_authenticated_user_details(request_headers)
+    user_id = authenticated_user_details['user_principal_id']
+    user_settings = await check_or_create_user_settings(user_id)
+    user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
+    logging.debug(f"user_temperature: {user_temperature}")
+    user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
+    logging.debug(f"user_system_message: {user_system_message}")
+    
     request_messages = request_body.get("messages", [])
     messages = []
+
     if not app_settings.datasource:
         messages = [
             {
                 "role": "system",
-                "content": app_settings.azure_openai.system_message
+                "content": user_system_message
             }
         ]
 
@@ -245,6 +375,7 @@ def prepare_model_args(request_body, request_headers):
                 }
             )
 
+
     user_json = None
     if (MS_DEFENDER_ENABLED):
         authenticated_user_details = get_authenticated_user_details(request_headers)
@@ -253,16 +384,19 @@ def prepare_model_args(request_body, request_headers):
 
     model_args = {
         "messages": messages,
-        "temperature": app_settings.azure_openai.temperature,
+        "temperature": user_temperature,
         "max_tokens": app_settings.azure_openai.max_tokens,
         "top_p": app_settings.azure_openai.top_p,
         "stop": app_settings.azure_openai.stop_sequence,
         "stream": app_settings.azure_openai.stream,
-        "model": app_settings.azure_openai.model,
-        "user": user_json
+        "model": selected_model,
+        "user": user_json,
     }
 
     if app_settings.datasource:
+        logging.info(f"Request object: {request}")
+        logging.info(f"Request body {request_body}")
+        logging.info(f"Request headers {request_headers}")
         model_args["extra_body"] = {
             "data_sources": [
                 app_settings.datasource.construct_payload_configuration(
@@ -270,6 +404,16 @@ def prepare_model_args(request_body, request_headers):
                 )
             ]
         }
+        logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
+        model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
+        logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
+        # embedding_dependency = app_settings.azure_openai.extract_embedding_dependency()
+        # if embedding_dependency:
+        #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
+        
+
+        
+        
 
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
@@ -351,7 +495,8 @@ async def send_chat_request(request_body, request_headers):
             filtered_messages.append(message)
             
     request_body['messages'] = filtered_messages
-    model_args = prepare_model_args(request_body, request_headers)
+    model_args = await prepare_model_args(request_body, request_headers)
+    logging.debug(f"model_args: {model_args}")
 
     try:
         azure_openai_client = init_openai_client()
@@ -396,6 +541,7 @@ async def conversation_internal(request_body, request_headers):
     try:
         if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow:
             result = await stream_chat_request(request_body, request_headers)
+            print(result)
             response = await make_response(format_as_ndjson(result))
             response.timeout = None
             response.mimetype = "application/json-lines"
@@ -410,6 +556,9 @@ async def conversation_internal(request_body, request_headers):
             return jsonify({"error": str(ex)}), ex.status_code
         else:
             return jsonify({"error": str(ex)}), 500
+
+
+
 
 
 @bp.route("/conversation", methods=["POST"])
@@ -430,6 +579,40 @@ def get_frontend_settings():
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
+async def user_settings(user_id):
+    cosmos_settings_client = init_cosmos_settings_client()
+    try:
+        user_settings_manager = UserSettingsManager(cosmos_settings_client)
+        if request.method == 'GET':
+            settings = await user_settings_manager.get_user_settings(user_id)
+            if settings is None: 
+                logging.info(f"Creating default settings for user_id: {user_id}")
+                await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
+            logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
+            return jsonify(settings)
+
+        elif request.method == 'POST':
+            new_settings = await request.json
+            logging.info(f"Received new settings for user_id: {user_id} - {new_settings}")
+            system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
+            temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
+            logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
+            updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
+            logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
+            return jsonify(updated_settings)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+    
+
+
+
+
+
+
 ## Conversation History API ##
 @bp.route("/history/generate", methods=["POST"])
 async def add_conversation():
@@ -442,6 +625,7 @@ async def add_conversation():
 
     try:
         # make sure cosmos is configured
+        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client = init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
@@ -501,6 +685,7 @@ async def update_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -544,6 +729,7 @@ async def update_conversation():
 async def update_message():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
+    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
 
     ## check request for message_id
@@ -602,6 +788,7 @@ async def delete_conversation():
 
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
+        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -639,6 +826,7 @@ async def list_conversations():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -668,6 +856,7 @@ async def get_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
+    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
@@ -722,6 +911,7 @@ async def rename_conversation():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
+    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -761,6 +951,7 @@ async def delete_all_conversations():
     # get conversations for user
     try:
         ## make sure cosmos is configured
+        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
@@ -812,6 +1003,7 @@ async def clear_messages():
             return jsonify({"error": "conversation_id is required"}), 400
 
         ## make sure cosmos is configured
+        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
@@ -891,7 +1083,7 @@ async def generate_title(conversation_messages) -> str:
     try:
         azure_openai_client = init_openai_client()
         response = await azure_openai_client.chat.completions.create(
-            model=app_settings.azure_openai.model, messages=messages, temperature=1, max_tokens=64
+            model=session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo"), messages=messages, temperature=1, max_tokens=64
         )
 
         title = response.choices[0].message.content

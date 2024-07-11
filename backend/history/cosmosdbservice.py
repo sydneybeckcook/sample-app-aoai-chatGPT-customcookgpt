@@ -379,7 +379,7 @@ class CosmosPrivacyNoticeClient:
         query = f"SELECT * FROM c WHERE c.userId = @userId"
         parameters = [{"name": "@userId", "value": user_id}]
         items=[]
-        async for item in await self.response_container_client.query_items(query=query, parameters=parameters):
+        async for item in self.response_container_client.query_items(query=query, parameters=parameters):
             items.append(item)
         return items[0] if items else None
 
@@ -412,7 +412,7 @@ class CosmosSettingsClient:
         query = f"SELECT * FROM c WHERE c.userId = @userId AND c.type = 'userSettings'"
         parameters = [{"name": "@userId", "value": user_id}]
         settings =[]
-        async for setting in await self.settings_container_client.query_items(query=query, parameters=parameters):
+        async for setting in self.settings_container_client.query_items(query=query, parameters=parameters):
             settings.append(setting)
         return settings[0] if settings else None
 
