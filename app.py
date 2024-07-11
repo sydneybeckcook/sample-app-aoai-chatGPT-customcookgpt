@@ -252,8 +252,8 @@ async def check_privacy_response():
         await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 @bp.route("/privacy_notice")
-def privacy_notice():
-    return send_from_directory('frontend', 'privacy_notice.txt')
+async def privacy_notice():
+    return await send_from_directory('frontend', 'privacy_notice.txt')
 
 @bp.route("/record_privacy_response", methods=["POST"])
 async def record_privacy_response():
@@ -261,7 +261,7 @@ async def record_privacy_response():
     try:
         authenticated_user = get_authenticated_user_details(request_headers=request.headers)
         user_id = authenticated_user['user_principal_id']
-        data = request.json
+        data = await request.json
         response = data.get("response")
         result = await cosmos_privacy_notice_client.record_user_response(user_id, response)
         return jsonify(result)
