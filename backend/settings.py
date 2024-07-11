@@ -54,41 +54,6 @@ class _UiSettings(BaseSettings):
     show_share_button: bool = True
 
 
-
-
-class _CosmosDBSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="AZURE_COSMOSDB_",
-        env_file=DOTENV_PATH,
-        extra="ignore",
-        env_ignore_empty=True
-    )
-
-    account: str
-    account_key: Optional[str] = None
-    local_endpoint: str
-    local_key: str
-
-    database: str
-    database_tokens:str
-    database_privacy_notice: str
-    database_settings: str
-
-
-    conversations_container: str
-    container_deleted_convos: str
-    container_shared_convos: str 
-    enable_feedback: bool = False
-
-    container_token_usage: str
-    container_token_user_privileges: str
-
-    container_responses: str
-    
-    container_settings: str
-
-
-
 class _ChatHistorySettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AZURE_COSMOSDB_",
@@ -152,14 +117,15 @@ class _AzureOpenAISettings(BaseSettings):
         env_prefix="AZURE_OPENAI_",
         env_file=DOTENV_PATH,
         extra='ignore',
-        env_ignore_empty=True
+        env_ignore_empty=True,
+        protected_namespaces=('settings_',)
     )
     
-    model: str
-    key: Optional[str] = None
-    resource: Optional[str] = None
-    endpoint: Optional[str] = None
-    temperature: float = 0
+    # model: str
+    # key: Optional[str] = None
+    # resource: Optional[str] = None
+    # endpoint: Optional[str] = None
+    temperature: float = 0.7
     top_p: float = 0
     max_tokens: int = 1000
     stream: bool = True
@@ -172,12 +138,25 @@ class _AzureOpenAISettings(BaseSettings):
     logit_bias: Optional[dict] = None
     presence_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
     frequency_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
-    system_message: str = "You are an AI assistant that helps people find information."
+    system_message: str = "You are an AI assistant that helps Cook Medical employees find information."
     preview_api_version: str = MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
+
+    model_v3: str
+    model_name_v3: str
+    key_v3: Optional[str] = None
+    resource_v3: Optional[str] = None
+    endpoint_v3: Optional[str] = None
+
+    model_v4: str
+    model_name_v4: str
+    key_v4: Optional[str] = None
+    resource_v4: Optional[str] = None
+    endpoint_v4: Optional[str] = None
     
+
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:
@@ -214,14 +193,22 @@ class _AzureOpenAISettings(BaseSettings):
     
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
-        if self.endpoint:
-            return Self
+        if self.endpoint_v3:
+            return self
+
+        elif self.resource_v3:
+            self.endpoint_v3 = f"https://{self.resource_v3}.openai.azure.com"
         
-        elif self.resource:
-            self.endpoint = f"https://{self.resource}.openai.azure.com"
-            return Self
+        if self.endpoint_v4:
+            return self
+
+        elif self.resource_v4:
+            self.endpoint_v4 = f"https://{self.resource_v4}.openai.azure.com"
+
+        if not self.endpoint_v3 and not self.endpoint_v4:
+            raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required for both v3 and v4")
         
-        raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
+        return self
         
     def extract_embedding_dependency(self) -> Optional[dict]:
         if self.embedding_name:
@@ -255,7 +242,7 @@ class _SearchCommonSettings(BaseSettings):
     include_contexts: Optional[List[str]] = ["citations", "intent"]
     vectorization_dimensions: Optional[int] = None
     role_information: str = Field(
-        default="You are an AI assistant that helps people find information.",
+        default="You are an AI assistant that helps Cook Medical employees find information.",
         validation_alias="AZURE_OPENAI_SYSTEM_MESSAGE"
     )
 
@@ -717,7 +704,7 @@ class _BaseSettings(BaseSettings):
     sanitize_answer: bool = False
     use_promptflow: bool = False
     is_development: bool = False
-    is_local: bool=False
+    is_local: bool = False
 
 
 class _AppSettings(BaseModel):
@@ -730,7 +717,7 @@ class _AppSettings(BaseModel):
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
-    cosmos_db: Optional[_CosmosDBSettings] = None
+ 
 
     @model_validator(mode="after")
     def set_promptflow_settings(self) -> Self:

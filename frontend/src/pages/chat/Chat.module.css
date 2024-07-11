@@ -60,6 +60,77 @@
   letter-spacing: -0.01em;
   color: #616161;
 }
+.modelToggleContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modelToggleButton {
+  width: 115px;
+  height: 30px;
+  position: relative;
+  background-color: #ccc;
+  border-radius: 15px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.sliderLeft, .sliderRight {
+  position: absolute;
+  width: 55px; 
+  height: 22px;
+  left: 4px; 
+  top: 4px;
+  background-color: #115EA3;
+  border-radius: 13px;
+}
+
+.slider {
+  position: relative;
+  width: 55px; 
+  height: 23px;
+  top: 4px;
+  background-color: #115EA3;
+  border-radius: 13px;
+  transition: left 0.4s;
+}
+
+.labelLeft, .labelRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  display: inline-block;
+}
+
+.labelLeft {
+  left: 10px;
+  color: rgb(111, 111, 111);
+}
+
+.labelLeft.toggled, .labelRight.toggled {
+  color: white;
+  font-weight: bold;
+}
+
+.labelRight {
+  right: 15px;
+  color: rgb(111, 111, 111);
+}
+
+.toggled {
+  color: white !important;
+}
+
+.modelToggleLabel {
+  font-size: 10px;
+  color: rgb(130, 128, 128);
+  text-align: center;
+  margin-bottom: 5px;
+  margin-top: 5px;
+  font-style: italic;
+}
 
 .chatIcon {
   height: 62px;

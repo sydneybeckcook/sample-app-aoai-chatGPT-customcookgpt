@@ -15,17 +15,17 @@ import {
 import { appStateReducer } from './AppReducer'
 
 export interface AppState {
-  isChatHistoryOpen: boolean;
-  chatHistoryLoadingState: ChatHistoryLoadingState;
-  isCosmosDBAvailable: CosmosDBHealth;
-  chatHistory: Conversation[] | null;
-  filteredChatHistory: Conversation[] | null;
-  currentChat: Conversation | null;
-  frontendSettings: FrontendSettings | null;
-  feedbackState: { [answerId: string]: Feedback.Neutral | Feedback.Positive | Feedback.Negative };
-  currentConversationId: string | null;
-  currentUserId: string | null;
-  hideRightWrapperButtons: boolean;
+  isChatHistoryOpen: boolean
+  chatHistoryLoadingState: ChatHistoryLoadingState
+  isCosmosDBAvailable: CosmosDBHealth
+  chatHistory: Conversation[] | null
+  filteredChatHistory: Conversation[] | null
+  currentChat: Conversation | null
+  frontendSettings: FrontendSettings | null
+  feedbackState: { [answerId: string]: Feedback.Neutral | Feedback.Positive | Feedback.Negative }
+  currentConversationId: string | null
+  currentUserId: string | null
+  hideRightWrapperButtons: boolean
 }
 
 export type Action =
