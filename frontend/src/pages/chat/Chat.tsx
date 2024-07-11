@@ -63,7 +63,7 @@ const Chat = () => {
   const [clearingChat, setClearingChat] = useState<boolean>(false)
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
-  const [selectedModel, setSelectedModel] = useState('gpt-35')
+  const [selectedModel, setSelectedModel] = useState('gpt-35-turbo')
 
 
 
@@ -104,7 +104,7 @@ const Chat = () => {
   const NO_CONTENT_ERROR = 'No content in messages object.'
 
   const handleModelToggle = async (): Promise<void> => {
-    const newModelKey = selectedModel === 'gpt-35' ? 'gpt-4o' :'gpt-35';
+    const newModelKey = selectedModel === 'gpt-35-turbo' ? 'gpt-4o' :'gpt-35-turbo';
     setSelectedModel(newModelKey)
 
     const res = await fetch('/change_model', {

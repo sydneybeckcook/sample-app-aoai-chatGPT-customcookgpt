@@ -107,7 +107,7 @@ logging.basicConfig(level=logging.INFO)
 
 def get_model_configuration(selected_model):
     model_configurations = {
-        "gpt-35": {
+        "gpt-35-turbo": {
             "resource": app_settings.azure_openai.resource_v3,
             "model": app_settings.azure_openai.model_v3,
             "endpoint":app_settings.azure_openai.endpoint_v3,
