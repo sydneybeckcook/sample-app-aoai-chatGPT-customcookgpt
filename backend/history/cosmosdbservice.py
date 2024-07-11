@@ -67,13 +67,13 @@ class CosmosConversationClient():
         else:
             return False
 
-    async def delete_conversation(self, user_id, conversation_id):
-        conversation = await self.convos_container_client.read_item(item=conversation_id, partition_key=user_id)        
-        if conversation:
-            resp = await self.convos_container_client.delete_item(item=conversation_id, partition_key=user_id)
-            return resp
-        else:
-            return True
+    # async def delete_conversation(self, user_id, conversation_id):
+    #     conversation = await self.convos_container_client.read_item(item=conversation_id, partition_key=user_id)        
+    #     if conversation:
+    #         resp = await self.convos_container_client.delete_item(item=conversation_id, partition_key=user_id)
+    #         return resp
+    #     else:
+    #         return True
 
     async def soft_delete_conversation(self, user_id, conversation_id):
         conversation = await self.convos_container_client.read_item(item=conversation_id, partition_key=user_id)
@@ -85,15 +85,15 @@ class CosmosConversationClient():
         else: 
             return True
         
-    async def delete_messages(self, conversation_id, user_id):
-        ## get a list of all the messages in the conversation
-        messages = await self.get_messages(user_id, conversation_id)
-        response_list = []
-        if messages:
-            for message in messages:
-                resp = await self.convos_container_client.delete_item(item=message['id'], partition_key=user_id)
-                response_list.append(resp)
-            return response_list
+    # async def delete_messages(self, conversation_id, user_id):
+    #     ## get a list of all the messages in the conversation
+    #     messages = await self.get_messages(user_id, conversation_id)
+    #     response_list = []
+    #     if messages:
+    #         for message in messages:
+    #             resp = await self.convos_container_client.delete_item(item=message['id'], partition_key=user_id)
+    #             response_list.append(resp)
+    #         return response_list
 
     async def soft_delete_messages(self, conversation_id, user_id):
         ## get a list of all the messages in the conversation
