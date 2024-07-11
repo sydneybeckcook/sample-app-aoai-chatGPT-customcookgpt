@@ -8,6 +8,7 @@ import Contoso from '../../assets/Contoso.svg'
 import { HistoryButton, ShareButton, HelpButton, SettingsButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
+import PrivacyNotice from "../../constants/privacyNotice"
 
 import styles from './Layout.module.css'
 
@@ -127,6 +128,7 @@ const Layout = () => {
 
   return (
     <div className={styles.layout}>
+      <PrivacyNotice />
       <header className={styles.header} role={'banner'}>
         <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
             <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
