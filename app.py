@@ -184,25 +184,24 @@ def init_openai_client():
             raise ValueError(
                 f"The minimum supported Azure OpenAI preview API version is '{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
             )
+        
+        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+        set_model_config_in_session(selected_model)
 
         # Endpoint
         if (
-            not app_settings.azure_openai.endpoint and
-            not app_settings.azure_openai.resource
+            not app_settings.azure_openai.endpoint_v3 and
+            not app_settings.azure_openai.resource_v3
         ):
             
             raise ValueError(
                 "AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required"
             )
 
-        endpoint = (
-            app_settings.azure_openai.endpoint
-            if app_settings.azure_openai.endpoint
-            else f"https://{app_settings.azure_openai.resource}.openai.azure.com/"
-        )
+        endpoint = session.get("AZURE_OPENAI_ENDPOINT")
 
         # Authentication
-        aoai_api_key = app_settings.azure_openai.key
+        aoai_api_key = session.get("AZURE_OPENAI_KEY")
         ad_token_provider = None
         if not aoai_api_key:
             logging.debug("No AZURE_OPENAI_KEY found, using Azure Entra ID auth")
@@ -211,7 +210,7 @@ def init_openai_client():
             )
 
         # Deployment
-        deployment = app_settings.azure_openai.model
+        deployment = session.get("AZURE_OPENAI_MODEL")
         if not deployment:
             raise ValueError("AZURE_OPENAI_MODEL is required")
 
