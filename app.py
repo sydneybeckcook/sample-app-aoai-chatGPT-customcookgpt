@@ -506,22 +506,14 @@ async def send_chat_request(request_body, request_headers):
         apim_request_id = raw_response.headers.get("apim-request-id") 
 
         token_limits = TokenLimits(cosmos_token_client)
-        if app_settings.datasource:
-            usage_data = response.get("usage", {})
-            if usage_data:
-                await token_limits.update_usage_from_usage(
-                    request_headers=request_headers,
-                    usage_data=usage_data,
-                    model_used=model_args["model"]
-                )
-        else:
-            for message in model_args["messages"]:
-                await token_limits.update_usage_from_message(
-                    request_headers=request_headers,
-                    message=message["content"],
-                    model_used=model_args["model"],
-                    message_type="input"
-                )
+
+        for message in model_args["messages"]:
+            await token_limits.update_usage_from_message(
+                request_headers=request_headers,
+                message=message["content"],
+                model_used=model_args["model"],
+                message_type="input"
+            )
 
     except Exception as e:
         logging.exception("Exception in send_chat_request")
@@ -544,7 +536,29 @@ async def complete_chat_request(request_body, request_headers):
         )
     else:
         response, apim_request_id = await send_chat_request(request_body, request_headers)
+        cosmos_token_client = init_cosmos_token_client()
+        token_limits = TokenLimits(cosmos_token_client)
+
+        if app_settings.datasource:
+            usage_data = response.get("usage", {})
+            if usage_data:
+                await token_limits.update_usage_from_usage(
+                    request_headers=request_headers,
+                    usage_data=usage_data,
+                    model_used=response.get("model", app_settings.azure_openai.model_3)
+                )
+        else:
+            message_content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if message_content:
+                await token_limits.update_usage_from_message(
+                    request_headers=request_headers,
+                    message=message_content,
+                    model_used=response.get("model", app_settings.azure_openai.model_3),
+                    message_type="output"
+                )
+
         history_metadata = request_body.get("history_metadata", {})
+        await cosmos_token_client.cosmosdb_client.close()
         return format_non_streaming_response(response, history_metadata, apim_request_id)
 
 
@@ -557,21 +571,22 @@ async def stream_chat_request(request_body, request_headers):
     async def generate():
         async for completionChunk in response:
             logging.info(f"completionChunk: {completionChunk}")
-            model_used = completionChunk.get("model", app_settings.azure_openai.model_3)
-            choices = completionChunk.get("choice",[])
-            if choices and "delta" in choices[0]:
-                message_content = choices[0]["delta"].get("content" "")
+            choices = completionChunk.choices
+            if choices and choices[0].delta:
+                message_content = choices[0].delta.content
                 if message_content:
                     logging.info(f"message_content: {message_content}")
                     await token_limits.update_usage_from_message(
                         request_headers=request_headers,
                         message=message_content,
-                        model_used=model_used,
+                        model_used=completionChunk.model,
                         message_type="output"
                     )
             yield format_stream_response(completionChunk, history_metadata, apim_request_id)
-
-    return generate()
+    try:
+        return generate()
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
 
 
@@ -682,11 +697,6 @@ async def user_settings(user_id):
     finally:
         await cosmos_settings_client.cosmosdb_client.close()
     
-
-
-
-
-
 
 ## Conversation History API ##
 @bp.route("/history/generate", methods=["POST"])
