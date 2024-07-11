@@ -106,7 +106,7 @@ logging.basicConfig(level=logging.INFO)
 
 def get_model_configuration(selected_model):
     model_configurations = {
-        "gpt-35-turbo-0125": {
+        "gpt-35": {
             "resource": app_settings.azure_openai.resource_v3,
             "model": app_settings.azure_openai.model_v3,
             "endpoint":app_settings.azure_openai.endpoint_v3,
@@ -148,7 +148,7 @@ async def change_model():
 
     logging.info(f"Received request to change model to: {selected_model}")
 
-    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
     logging.info(f"Current selected model: {current_model}")
 
     if set_model_config_in_session(selected_model):
@@ -185,7 +185,7 @@ def init_openai_client():
                 f"The minimum supported Azure OpenAI preview API version is '{MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}'"
             )
         
-        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
         set_model_config_in_session(selected_model)
 
         # Endpoint
@@ -335,7 +335,7 @@ async def check_or_create_user_settings(user_id):
 
 
 async def prepare_model_args(request_body, request_headers):
-    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo-0125")
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
     set_model_config_in_session(selected_model)
 
     authenticated_user_details = get_authenticated_user_details(request_headers)
@@ -532,6 +532,7 @@ async def conversation_internal(request_body, request_headers):
     try:
         if app_settings.azure_openai.stream:
             result = await stream_chat_request(request_body, request_headers)
+            print(result)
             response = await make_response(format_as_ndjson(result))
             response.timeout = None
             response.mimetype = "application/json-lines"
@@ -1064,7 +1065,7 @@ async def generate_title(conversation_messages) -> str:
     try:
         azure_openai_client = init_openai_client()
         response = await azure_openai_client.chat.completions.create(
-            model=app_settings.azure_openai.model, messages=messages, temperature=1, max_tokens=64
+            model=session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo"), messages=messages, temperature=1, max_tokens=64
         )
 
         title = response.choices[0].message.content
