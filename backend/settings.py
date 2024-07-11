@@ -117,11 +117,11 @@ class _AzureOpenAISettings(BaseSettings):
         protected_namespaces=('settings_',)
     )
     
-    model: str
-    key: Optional[str] = None
-    resource: Optional[str] = None
-    endpoint: Optional[str] = None
-    temperature: float = 0
+    # model: str
+    # key: Optional[str] = None
+    # resource: Optional[str] = None
+    # endpoint: Optional[str] = None
+    temperature: float = 0.7
     top_p: float = 0
     max_tokens: int = 1000
     stream: bool = True
@@ -152,7 +152,7 @@ class _AzureOpenAISettings(BaseSettings):
     resource_v4: Optional[str] = None
     endpoint_v4: Optional[str] = None
     
-    
+
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:
@@ -189,14 +189,22 @@ class _AzureOpenAISettings(BaseSettings):
     
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
-        if self.endpoint:
-            return Self
+        if self.endpoint_v3:
+            return self
+
+        elif self.resource_v3:
+            self.endpoint_v3 = f"https://{self.resource_v3}.openai.azure.com"
         
-        elif self.resource:
-            self.endpoint = f"https://{self.resource}.openai.azure.com"
-            return Self
+        if self.endpoint_v4:
+            return self
+
+        elif self.resource_v4:
+            self.endpoint_v4 = f"https://{self.resource_v4}.openai.azure.com"
+
+        if not self.endpoint_v3 and not self.endpoint_v4:
+            raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required for both v3 and v4")
         
-        raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
+        return self
         
     def extract_embedding_dependency(self) -> Optional[dict]:
         if self.embedding_name:
