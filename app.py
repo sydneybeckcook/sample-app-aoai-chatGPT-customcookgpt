@@ -4,6 +4,7 @@ import os
 import logging
 import uuid
 import httpx
+import datetime
 from quart import (
     Blueprint,
     Quart,
@@ -261,9 +262,10 @@ async def record_privacy_response():
     try:
         authenticated_user = get_authenticated_user_details(request_headers=request.headers)
         user_id = authenticated_user['user_principal_id']
+        date = datetime.utcnow().isoFormat
         data = request.json
         response = data.get("response")
-        result = await cosmos_privacy_notice_client.record_user_response(user_id, response)
+        result = await cosmos_privacy_notice_client.record_user_response(user_id, date, response)
         return jsonify(result)
     except Exception as e:
         print(f"An error occurred: {e}")

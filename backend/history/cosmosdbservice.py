@@ -379,15 +379,16 @@ class CosmosPrivacyNoticeClient:
         query = f"SELECT * FROM c WHERE c.userId = @userId"
         parameters = [{"name": "@userId", "value": user_id}]
         items=[]
-        async for item in await self.response_container_client.query_items(query=query, parameters=parameters):
+        async for item in self.response_container_client.query_items(query=query, parameters=parameters):
             items.append(item)
         return items[0] if items else None
 
-    async def record_user_response(self, user_id, response):
+    async def record_user_response(self, user_id, date, response):
         try:
             response_record = {
                 'id': str(uuid.uuid4()),
                 'userId': user_id,
+                'date': date, 
                 'response': response
             }
             print(f"response_record: {response_record}")
