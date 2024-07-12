@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime
 import json
 import os
 import logging
@@ -36,6 +37,8 @@ from backend.utils import (
     format_pf_non_streaming_response,
 )
 from backend.usersettings import UserSettingsManager
+from backend.tokens.token_limits import TokenLimits
+from backend.tokens.token_privileges import TokenPrivileges
 load_dotenv()
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -241,15 +244,6 @@ def prepare_cosmosdb_client_parameters():
         cosmosdb_key = app_settings.chat_history.account_key
 
     credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
-def prepare_cosmosdb_client_parameters():
-    if app_settings.base_settings.is_local:
-        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
-        cosmosdb_key = app_settings.chat_history.local_key
-    else:
-        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-        cosmosdb_key = app_settings.chat_history.account_key
-
-    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
 
     return cosmosdb_endpoint, credentials
 
@@ -312,6 +306,27 @@ def init_cosmos_settings_client():
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
 
+
+async def check_user_token_limits(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    try:
+        logging.info("check_user_token_limits - Entered")
+        user_daily_cost_limit = await get_user_token_daily_limit(request_headers)
+        logging.debug(f"check_user_token_limits - user_daily_cost_limit: {user_daily_cost_limit}")
+
+        token_limits = TokenLimits(cosmos_token_client)
+        today = datetime.utcnow().date().isoformat()
+        user_id = get_authenticated_user_details(request_headers)['user_principal_id']
+        current_cost = await token_limits.check_token_costs(user_id, today, today)
+        logging.debug(f"check_user_token_limits - User today has already incurred a current_cost: {current_cost}")
+
+        if current_cost >= user_daily_cost_limit:
+            logging.error(f"check_user_token_limits - error: Token limit exceeded")
+            return jsonify({"error": "Token limit exceeded"}), 403
+        logging.debug("check_user_token_limits - User's token limit not exceeded, returning None")
+        return None
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
 async def check_or_create_user_settings(user_id):
     logging.info(f"check_or_create_user_settings - Starting for user_id: {user_id}")
@@ -403,9 +418,9 @@ async def prepare_model_args(request_body, request_headers):
                 )
             ]
         }
-        logging.info(f'prepare_model_args - model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
+        logging.info(f'prepare_model_args - model_args["extra_body"]["data_sources"][0]["parameters"]: {model_args["extra_body"]["data_sources"][0]["parameters"]}')
         model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
-        logging.info(f'prepare_model_args - model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
+        logging.info(f'prepare_model_args - model_args["extra_body"]["data_sources"][0]["parameters"]: {model_args["extra_body"]["data_sources"][0]["parameters"]}')
         
         
 
@@ -443,7 +458,7 @@ async def prepare_model_args(request_body, request_headers):
                         "embedding_dependency"
                     ]["authentication"][field] = "*****"
 
-    logging.info("Exiting prepare_model_args, returning model_args : {model_args}")
+    logging.info(f"Exiting prepare_model_args, returning model_args : {model_args}")
     return model_args
 
 
@@ -481,7 +496,7 @@ async def promptflow_request(request):
 
 
 async def send_chat_request(request_body, request_headers):
-    logging.info("Entering send_chat_request")
+    logging.info("send_chat_request - Entered")
     filtered_messages = []
     messages = request_body.get("messages", [])
     for message in messages:
@@ -490,26 +505,86 @@ async def send_chat_request(request_body, request_headers):
             
     request_body['messages'] = filtered_messages
     model_args = await prepare_model_args(request_body, request_headers)
-    logging.debug(f"send_chat_request - model arguments prepared: {model_args}")
-    logging.debug(f"send_chat_request - full prompt: {json.dumps(model_args['messages'], indent=4)}")
+    logging.debug(f"send_chat_request - Model arguments prepared by prepare_model_args: {model_args}")
+    logging.debug(f"send_chat_request - Full prompt: {json.dumps(model_args['messages'], indent=4)}")
+
+    cosmos_token_client = init_cosmos_token_client()
 
     try:
+        
+        token_limits = TokenLimits(cosmos_token_client)
+        total_user_prompt_tokens = 0
+        user_prompt_tokens = 0
+        for message in model_args["messages"]: 
+            user_prompt_tokens = token_limits.calculate_tokens(message["content"])
+            total_user_prompt_tokens += user_prompt_tokens
+            logging.debug(f"send_chat_request - user_prompt_token count {user_prompt_tokens} for message: {message['content']}")
+        logging.info(f"send_chat_request - total_user_prompt_tokens: {total_user_prompt_tokens}")
+
+
+        users_prompt_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': total_user_prompt_tokens,
+                'output': 0
+            },
+            model_used=model_args["model"]
+        )
+        logging.info(f"send_chat_request - users_prompt_cost: {users_prompt_cost}")
+    
+        user_id = get_authenticated_user_details(request_headers)["user_principal_id"]
+        todays_token_usage_cost = await token_limits.get_todays_cost(user_id)
+        users_daily_token_cost_limit = await get_user_token_daily_limit(request_headers)
+
+        amount_left = users_daily_token_cost_limit - (todays_token_usage_cost + users_prompt_cost)
+
+        if amount_left < 0:
+            logging.error(f"send_chat_request - User's prompt cost exceeds the daily allotted cost")
+            raise Exception("User's prompt cost exceeds the daily allotted cost")
+        logging.debug(f"send_chat_request - User has {amount_left} dollars left")
+
+        for message in model_args["messages"]:
+            entry = await token_limits.update_usage_from_message(
+                request_headers=request_headers,
+                message=message["content"],
+                model_used=model_args["model"],
+                message_type="input"
+            ) 
+            logging.info(f"send_chat_request - Upserted to token_usage_dev: {entry}")
         azure_openai_client = init_openai_client()
+        logging.debug(f"send_chat_request - Calling chat.completions.with_raw_response.create")
         raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
         response = raw_response.parse()
         apim_request_id = raw_response.headers.get("apim-request-id") 
-        logging.info(f"send_chat_request - Request ID: {apim_request_id}")
-        logging.info(f"send_chat_request - Response: {response}")
+        logging.info(f"send_chat_request - From chat.completions.with_raw_response.create - apim_request_id: {apim_request_id}")
+        logging.info(f"send_chat_request - From chat.completions.with_raw_response.create - response: {response}")
+
 
     except Exception as e:
         logging.exception("Exception in send_chat_request")
         raise e
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
     return response, apim_request_id
 
+async def get_user_token_daily_limit(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    user_privilege = TokenPrivileges(cosmos_token_client)
+    try:
+        user_privilege_type = await user_privilege.check_user_token_privileges(request_headers)
+        if user_privilege_type == "super":
+            daily_limit_cost = app_settings.base_settings.daily_token_cost_limit_super
+        else: 
+            daily_limit_cost = app_settings.base_settings.daily_token_cost_limit_regular
+        return daily_limit_cost
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
+
+
+
 
 async def complete_chat_request(request_body, request_headers):
-    logging.info("Entering complete_chat_request")
+    logging.info("complete_chat_request - Entered")
     if app_settings.base_settings.use_promptflow:
         logging.info("Using promptflow_request")
         response = await promptflow_request(request_body)
@@ -521,63 +596,95 @@ async def complete_chat_request(request_body, request_headers):
             app_settings.promptflow.citations_field_name
         )
     else:
+        logging.info("complete_chat_request - Calling send_chat_request")
         response, apim_request_id = await send_chat_request(request_body, request_headers)
+        logging.info(f"complete_chat_request - Result from send_chat_request - response: {response} - apim_request_id: {apim_request_id}")
         history_metadata = request_body.get("history_metadata", {})
         formatted_response = format_non_streaming_response(response, history_metadata, apim_request_id)
         usage = response.usage if hasattr(response, 'usage') else {}
         prompt_tokens = getattr(usage, 'prompt_tokens', 0)
         completion_tokens = getattr(usage, 'completion_tokens', 0)
         total_tokens = getattr(usage, 'total_tokens', 0)
-        logging.info(f"complete_chat_request - response: {response}")
-        logging.info(f"complete_chat_request - Token usage - Prompt Tokens: {prompt_tokens}, Completion Tokens: {completion_tokens}, Total Tokens: {total_tokens}")
+        logging.info(f"complete_chat_request - Token usage from openai - Prompt Tokens: {prompt_tokens}, Completion Tokens: {completion_tokens}, Total Tokens: {total_tokens}")
 
-        # Add token usage data to the response
-        formatted_response['usage'] = {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens
-        }
-        logging.info(f"complete_chat_request - formatted_response return: {formatted_response}")
+        # response is object type ChatCompletion
+        choice = response.choices[0] #Object type Choice 
+        message = choice.message #Object type ChatCompletionMessage
+        message_content = message.content
+
+        logging.debug(f"complete_chat_request - Choice object {choice}")
+        logging.debug(f"complete_chat_request - ChatCompletionMessage object {message}")
+        logging.debug(f"complete_chat_request - content of ChatCompletionMessage {message_content}")
+
+
+        cosmos_token_client = init_cosmos_token_client()
+        token_limits = TokenLimits(cosmos_token_client)
+        if message_content:
+            entry = await token_limits.update_usage_from_message(
+                request_headers=request_headers,
+                message = message_content,
+                model_used=session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3),
+                message_type="output"
+            )
+            logging.info(f"complete_chat_request - Upserted to token_usage_dev: {entry}")
+
+        await cosmos_token_client.cosmosdb_client.close()
+        
+
+        # # Add token usage data to the response
+        # formatted_response['usage'] = {
+        #     "prompt_tokens": prompt_tokens,
+        #     "completion_tokens": completion_tokens,
+        #     "total_tokens": total_tokens
+        # }
+        # logging.info(f"complete_chat_request - Returning formatted_response with usage: {formatted_response}")
         
         return formatted_response
 
 
 async def stream_chat_request(request_body, request_headers):
-    logging.info("Entering stream_chat_request")
+    logging.info("stream_chat_request - Entered")
+    logging.info("stream_chat_request - Calling send_chat_request")
     response, apim_request_id = await send_chat_request(request_body, request_headers)
+    logging.info(f"stream_chat_request - Result from send_chat_request - response: {response} - apim_request_id: {apim_request_id}")
     history_metadata = request_body.get("history_metadata", {})
+    cosmos_token_client = init_cosmos_token_client()
+    token_limits = TokenLimits(cosmos_token_client)
     async def generate():
+        logging.info("stream_chat_request - Starting to stream chunks")
         async for completionChunk in response:
-            logging.debug(f"stream_chat_request - completion chunk: {completionChunk}")
+            logging.debug(f"stream_chat_request - Streaming chunk: {completionChunk}")
+            choice = completionChunk.choices[0] # Object type Choice
+            delta = choice.delta #Object type ChoiceDelta
+            message_content = delta.content
+
+            logging.debug(f"stream_chat_request - Choice object {choice}")
+            logging.debug(f"stream_chat_request - ChoiceDelta object {delta}")
+            logging.debug(f"stream_chat_request - content of ChoiceDelta  {message_content}")
+
+            entry = await token_limits.update_usage_from_message(
+                request_headers = request_headers,
+                message = message_content, 
+                model_used = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3),
+                message_type="output"
+            )
+
+            logging.info(f"stream_chat_request - Upserting to token_usage_dev: {entry}")
+
             yield format_stream_response(completionChunk, history_metadata, apim_request_id)
-
-        final_response = response[-1].parse()
-        logging.debug(f"stream_chat_request - type of final_response: {type(final_response)}")
-        logging.debug(f"stream_chat_request - content of final_response: {final_response}")
-        if isinstance(final_response, dict):
-            usage = final_response.get('usage', {})
-            prompt_tokens = usage.get('prompt_tokens', 0)
-            completion_tokens = usage.get('completion_tokens', 0)
-            total_tokens = usage.get('total_tokens', 0)
- 
-
-        logging.info(f"stream_chat_request - Token usage - Prompt Tokens: {prompt_tokens}, Completion Tokens: {completion_tokens}, Total Tokens: {total_tokens}")
-
-        yield {
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens
-            }
-        }
-
-
-    return generate()
-
+    try:
+        return generate()
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
+        
 
 async def conversation_internal(request_body, request_headers):
-    logging.info("Entering conversation_internal")
+    logging.info("conversation_internal - Entered")
     try:
+        token_limits_error_msg = await check_user_token_limits(request_headers)
+        if token_limits_error_msg: 
+            return token_limits_error_msg
+
         if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow:
             logging.info("conversation_internal - Calling stream_chat_request")
             result = await stream_chat_request(request_body, request_headers)
@@ -590,7 +697,7 @@ async def conversation_internal(request_body, request_headers):
         else:
             logging.info(f"conversation_internal - Calling complete_chat_request")
             result = await complete_chat_request(request_body, request_headers)
-            logging.info(f"Result from complete_chat_request: {result}")
+            logging.info(f"conversation_internal - Result from complete_chat_request: {result}")
             response = jsonify(result)
             logging.info(f"conversation_internal - Returning formatted non-streaming response: {response}") 
             return response
@@ -648,11 +755,11 @@ async def user_settings(user_id):
             logging.info(f"user_settings - Received new settings for user_id: {user_id} - {new_settings}")
             system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
             temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
-            logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
+            logging.info(f"user_settings - Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
             updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
-            logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
+            logging.info(f"user_settings - Updated settings for user_id: {user_id} - {updated_settings}")
             response = jsonify(updated_settings)
-            logging.info(f"Returning POST request response {response}")
+            logging.info(f"user_settings - Returning POST request response {response}")
             return response
     except Exception as e:
         logging.exception(f"Exception in user_settings for user_id: {user_id}")

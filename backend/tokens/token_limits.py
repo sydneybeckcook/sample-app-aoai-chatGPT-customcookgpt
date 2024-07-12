@@ -89,3 +89,40 @@ class TokenLimits:
                            record['gpt35OutputTokens'] * gpt35_output_cost)
 
         return total_cost
+    
+
+
+    async def get_todays_cost(self, user_id):
+        today = datetime.utcnow().date().isoformat()
+        token_record = await self.cosmos_token_client.get_token_usage(user_id, today)
+
+        if not token_record:
+            return 0
+
+        gpt35_tokens = {
+            'input': token_record.get('gpt35InputTokens', 0),
+            'output': token_record.get('gpt35OutputTokens', 0)
+        }
+        gpt4_tokens = {
+            'input': token_record.get('gpt4InputTokens', 0),
+            'output': token_record.get('gpt4OutputTokens', 0)
+        }
+
+        cost_gpt35 = self.calculate_token_cost(gpt35_tokens, 'gpt-35-turbo')
+        cost_gpt4 = self.calculate_token_cost(gpt4_tokens, 'gpt-4o')
+
+        return cost_gpt35 + cost_gpt4
+    
+
+
+    def calculate_token_cost(self, tokens, model_used):
+        if model_used.startswith('gpt-35-turbo'):
+            input_cost = 0.003 / 1000  # $0.003 per 1,000 tokens
+            output_cost = 0.004 / 1000  # $0.004 per 1,000 tokens
+        elif model_used.startswith('gpt-4o'):
+            input_cost = 0.01 / 1000  # $0.01 per 1,000 tokens
+            output_cost = 0.03 / 1000  # $0.03 per 1,000 tokens
+        else:
+            raise ValueError("Unknown model")
+
+        return tokens['input'] * input_cost + tokens['output'] * output_cost
