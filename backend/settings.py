@@ -113,13 +113,10 @@ class _AzureOpenAISettings(BaseSettings):
         env_prefix="AZURE_OPENAI_",
         env_file=DOTENV_PATH,
         extra='ignore',
-        env_ignore_empty=True
+        env_ignore_empty=True,
+        protected_namespaces=('t', 's', 'e')
     )
-    
-    model: str
-    key: Optional[str] = None
-    resource: Optional[str] = None
-    endpoint: Optional[str] = None
+
     temperature: float = 0
     top_p: float = 0
     max_tokens: int = 1000
@@ -189,17 +186,32 @@ class _AzureOpenAISettings(BaseSettings):
         
         return None
     
+    # @model_validator(mode="after")
+    # def ensure_endpoint(self) -> Self:
+    #     if self.endpoint:
+    #         return Self
+        
+    #     elif self.resource:
+    #         self.endpoint = f"https://{self.resource}.openai.azure.com"
+    #         return Self
+        
+    #     raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
+
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
-        if self.endpoint:
-            return Self
+        if self.endpoint_v3 or self.endpoint_v4:
+            return self
         
-        elif self.resource:
-            self.endpoint = f"https://{self.resource}.openai.azure.com"
-            return Self
+        if self.resource_v3:
+            self.endpoint_v3 = f"https://{self.resource_v3}.openai.azure.com"
+            return self
+
+        if self.resource_v4:
+            self.endpoint_v4 = f"https://{self.resource_v4}.openai.azure.com"
+            return self
         
-        raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
-        
+        raise ValidationError("AZURE_OPENAI_ENDPOINT_V3 or AZURE_OPENAI_RESOURCE_V3 is required")
+            
     def extract_embedding_dependency(self) -> Optional[dict]:
         if self.embedding_name:
             return {
