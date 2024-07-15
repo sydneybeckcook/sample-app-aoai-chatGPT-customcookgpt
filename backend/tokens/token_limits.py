@@ -48,7 +48,7 @@ class TokenLimits:
         else:
             return {"error": "Unknown model"}
 
-        await self.cosmos_token_client.upsert_token_record(token_record)
+        return await self.cosmos_token_client.upsert_token_record(token_record)
     
     async def update_usage_from_usage(self, request_headers, usage_data, model_used):
         today = datetime.utcnow().date().isoformat()
@@ -71,7 +71,7 @@ class TokenLimits:
         else:
             raise ValueError("Unknown model")
 
-        await self.cosmos_token_client.upsert_token_record(token_record)
+        return await self.cosmos_token_client.upsert_token_record(token_record)
 
     async def check_token_costs(self, user_id, start_date, end_date):
         gpt4_input_cost = 0.01 / 1000  # $0.01 per 1,000 tokens

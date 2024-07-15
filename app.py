@@ -676,7 +676,7 @@ async def stream_chat_request(request_body, request_headers):
         return generate()
     finally:
         await cosmos_token_client.cosmosdb_client.close()
-        
+
 
 async def conversation_internal(request_body, request_headers):
     logging.info("conversation_internal - Entered")
