@@ -14,7 +14,8 @@ from quart import (
     request,
     send_from_directory,
     render_template,
-    session
+    session,
+    
 )
 
 from openai import AsyncAzureOpenAI
@@ -48,6 +49,7 @@ def create_app():
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.secret_key = os.environ.get("QUART_SECRET_KEY")
+  
     return app
 
 
@@ -158,7 +160,6 @@ async def change_model():
         return jsonify({"change_model - message": "Model changed successfully", "current_model": selected_model}), 200
     else:
         return jsonify({"change_model - error": "Invalid model selected", "current_model": current_model}), 400
-
 
 
 @bp.route("/get_user_id", methods=["GET"])
@@ -422,7 +423,7 @@ async def prepare_model_args(request_body, request_headers):
         model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
         logging.info(f'prepare_model_args - model_args["extra_body"]["data_sources"][0]["parameters"]: {model_args["extra_body"]["data_sources"][0]["parameters"]}')
         
-        
+    
 
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
