@@ -620,14 +620,26 @@ async def complete_chat_request(request_body, request_headers):
 
         cosmos_token_client = init_cosmos_token_client()
         token_limits = TokenLimits(cosmos_token_client)
+        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3)
+        logging.info(f"complete_chat_request - Model in session {selected_model}")
         if message_content:
             entry = await token_limits.update_usage_from_message(
                 request_headers=request_headers,
                 message = message_content,
-                model_used=session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3),
+                model_used=selected_model,
                 message_type="output"
             )
             logging.info(f"complete_chat_request - Upserted to token_usage_dev: {entry}")
+            completion_tokens = token_limits.calculate_tokens(message_content)
+            logging.debug(f"complete_chat_request - completion_tokens count {completion_tokens}") 
+            completion_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': 0,
+                'output': completion_tokens
+            },
+            model_used=selected_model
+        )
+        logging.info(f"complete_chat_request - completion_cost: {completion_cost}")
 
         await cosmos_token_client.cosmosdb_client.close()
         
@@ -651,28 +663,42 @@ async def stream_chat_request(request_body, request_headers):
     history_metadata = request_body.get("history_metadata", {})
     cosmos_token_client = init_cosmos_token_client()
     token_limits = TokenLimits(cosmos_token_client)
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3)
+    logging.info(f"stream_chat_request - Model in session {selected_model}")
+    completion_tokens = 0
+    total_completion_tokens = 0
     async def generate():
+        nonlocal total_completion_tokens
         logging.info("stream_chat_request - Starting to stream chunks")
         async for completionChunk in response:
-            logging.debug(f"stream_chat_request - Streaming chunk: {completionChunk}")
-            choice = completionChunk.choices[0] # Object type Choice
-            delta = choice.delta #Object type ChoiceDelta
-            message_content = delta.content
-
-            logging.debug(f"stream_chat_request - Choice object {choice}")
-            logging.debug(f"stream_chat_request - ChoiceDelta object {delta}")
-            logging.debug(f"stream_chat_request - content of ChoiceDelta  {message_content}")
-
-            entry = await token_limits.update_usage_from_message(
-                request_headers = request_headers,
-                message = message_content, 
-                model_used = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3),
-                message_type="output"
-            )
-
-            logging.info(f"stream_chat_request - Upserting to token_usage_dev: {entry}")
-
-            yield format_stream_response(completionChunk, history_metadata, apim_request_id)
+            # logging.debug(f"stream_chat_request - Streaming chunk: {completionChunk}")
+            response_obj = format_stream_response(completionChunk, history_metadata, apim_request_id)
+            # logging.info(f"stream_chat_request - Upserting to token_usage_dev: {entry}")
+            logging.info(f"RESPONSE OBJECT {response_obj}")
+            if response_obj and ("choices" in response_obj) and (len(response_obj["choices"])>0):
+                content = response_obj["choices"][0]["messages"][0]["content"]
+                logging.info(f"stream_chat_request - content - {content}")
+                if content:
+                    entry = await token_limits.update_usage_from_message(
+                        request_headers=request_headers,
+                        message=content,
+                        model_used=selected_model,
+                        message_type="output"
+                    )
+                    logging.info(f"stream_chat_request - Upserted to token_usage_dev entry {entry}")
+                    completion_tokens = token_limits.calculate_tokens(content)
+                    total_completion_tokens += completion_tokens
+                    logging.debug(f"stream_chat_request - completion_tokens count {completion_tokens} for message: {content}")
+            yield response_obj
+        logging.info(f"stream_chat_request - total_completion_tokens count {total_completion_tokens}")
+        completion_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': 0,
+                'output': total_completion_tokens
+            },
+            model_used=selected_model
+        )
+        logging.info(f"stream_chat_request - completion_cost: {completion_cost}")
     try:
         return generate()
     finally:
