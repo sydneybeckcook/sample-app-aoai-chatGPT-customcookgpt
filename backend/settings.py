@@ -281,7 +281,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["azure_search"] = PrivateAttr(default="azure_search")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     service: str = Field(exclude=True)
     endpoint_suffix: str = Field(default="search.windows.net", exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -396,7 +396,7 @@ class _AzureCosmosDbMongoVcoreSettings(
     _type: Literal["azure_cosmosdb"] = PrivateAttr(default="azure_cosmosdb")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     query_type: Literal['vector'] = "vector"
     connection_string: str = Field(exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -465,7 +465,7 @@ class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["elasticsearch"] = PrivateAttr(default="elasticsearch")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     endpoint: str
     encoded_api_key: str = Field(exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -538,7 +538,7 @@ class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["pinecone"] = PrivateAttr(default="pinecone")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     environment: str
     api_key: str = Field(exclude=True)
     index_name: str
@@ -608,7 +608,7 @@ class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["azure_ml_index"] = PrivateAttr(default="azure_ml_index")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     name: str
     version: str
     project_resource_id: str = Field(validation_alias="AZURE_ML_PROJECT_RESOURCE_ID")

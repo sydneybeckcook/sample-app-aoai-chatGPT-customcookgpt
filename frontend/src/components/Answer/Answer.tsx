@@ -1,10 +1,10 @@
-import { FormEvent, useContext, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { nord } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, Text } from '@fluentui/react'
+import { Checkbox, DefaultButton, Dialog, FontIcon, Stack, Text, MessageBar, MessageBarType } from '@fluentui/react'
 import { useBoolean } from '@fluentui/react-hooks'
-import { ThumbDislike20Filled, ThumbLike20Filled } from '@fluentui/react-icons'
+import { ThumbDislike20Filled, ThumbLike20Filled, Copy24Filled } from '@fluentui/react-icons'
 import DOMPurify from 'dompurify'
 import remarkGfm from 'remark-gfm'
 import supersub from 'remark-supersub'
@@ -45,6 +45,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
   const FEEDBACK_ENABLED =
     appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isCosmosDBAvailable?.cosmosDB
   const SANITIZE_ANSWER = appStateContext?.state.frontendSettings?.sanitize_answer
+  const [isCopyNotificationVisible, setCopyNotificationVisible] = useState(false)
 
   const handleChevronClick = () => {
     setChevronIsExpanded(!chevronIsExpanded)
@@ -54,6 +55,12 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
   useEffect(() => {
     setChevronIsExpanded(isRefAccordionOpen)
   }, [isRefAccordionOpen])
+
+  const copyAnswerToClipboard = () => {
+    navigator.clipboard.writeText(parsedAnswer.markdownFormatText)
+    setCopyNotificationVisible(true)
+    setTimeout(() => setCopyNotificationVisible(false), 3000)
+  }
 
   useEffect(() => {
     if (answer.message_id == undefined) return
@@ -228,7 +235,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
   }
 
   const components = {
-    code({ node, ...props }: { node: any;[key: string]: any }) {
+    code({ node, ...props }: { node: any; [key: string]: any }) {
       let language
       if (props.className) {
         const match = props.className.match(/language-(\w+)/)
@@ -253,41 +260,15 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
                 remarkPlugins={[remarkGfm, supersub]}
                 children={
                   SANITIZE_ANSWER
-                    ? DOMPurify.sanitize(parsedAnswer.markdownFormatText, { ALLOWED_TAGS: XSSAllowTags, ALLOWED_ATTR: XSSAllowAttributes })
+                    ? DOMPurify.sanitize(parsedAnswer.markdownFormatText, {
+                        ALLOWED_TAGS: XSSAllowTags,
+                        ALLOWED_ATTR: XSSAllowAttributes
+                      })
                     : parsedAnswer.markdownFormatText
                 }
                 className={styles.answerText}
                 components={components}
               />
-            </Stack.Item>
-            <Stack.Item className={styles.answerHeader}>
-              {FEEDBACK_ENABLED && answer.message_id !== undefined && (
-                <Stack horizontal horizontalAlign="space-between">
-                  <ThumbLike20Filled
-                    aria-hidden="false"
-                    aria-label="Like this response"
-                    onClick={() => onLikeResponseClicked()}
-                    style={
-                      feedbackState === Feedback.Positive ||
-                        appStateContext?.state.feedbackState[answer.message_id] === Feedback.Positive
-                        ? { color: 'darkgreen', cursor: 'pointer' }
-                        : { color: 'slategray', cursor: 'pointer' }
-                    }
-                  />
-                  <ThumbDislike20Filled
-                    aria-hidden="false"
-                    aria-label="Dislike this response"
-                    onClick={() => onDislikeResponseClicked()}
-                    style={
-                      feedbackState !== Feedback.Positive &&
-                        feedbackState !== Feedback.Neutral &&
-                        feedbackState !== undefined
-                        ? { color: 'darkred', cursor: 'pointer' }
-                        : { color: 'slategray', cursor: 'pointer' }
-                    }
-                  />
-                </Stack>
-              )}
             </Stack.Item>
           </Stack>
         </Stack.Item>
@@ -325,7 +306,9 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
             </Stack.Item>
           )}
           <Stack.Item className={styles.answerDisclaimerContainer}>
-            <span className={styles.answerDisclaimer}>AI-generated content may be incorrect</span>
+            <span className={styles.answerDisclaimer}>
+              AI-generated content may use copyrighted sources and may be inaccurate. Always verify before use.
+            </span>
           </Stack.Item>
           {!!answer.exec_results?.length && (
             <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
@@ -337,15 +320,9 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
                     aria-label="Open Intents"
                     tabIndex={0}
                     role="button">
-                    <span>
-                      Show Intents
-                    </span>
+                    <span>Show Intents</span>
                   </Text>
-                  <FontIcon
-                    className={styles.accordionIcon}
-                    onClick={handleChevronClick}
-                    iconName={'ChevronRight'}
-                  />
+                  <FontIcon className={styles.accordionIcon} onClick={handleChevronClick} iconName={'ChevronRight'} />
                 </Stack>
               </Stack>
             </Stack.Item>
@@ -370,6 +347,52 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
               )
             })}
           </div>
+        )}
+        <Stack.Item className={styles.footerIcons}>
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center" className={styles.iconsContainer}>
+            <Copy24Filled
+              title="Copy Answer"
+              aria-label="Copy answer text to clipboard"
+              onClick={copyAnswerToClipboard}
+              className={styles.copyButton}
+            />
+            {FEEDBACK_ENABLED && answer.message_id !== undefined && (
+              <Stack horizontal horizontalAlign="space-between" verticalAlign="center" className={styles.feedbackIcons}>
+                <ThumbLike20Filled
+                  aria-hidden="false"
+                  aria-label="Like this response"
+                  onClick={() => onLikeResponseClicked()}
+                  style={
+                    feedbackState === Feedback.Positive ||
+                    appStateContext?.state.feedbackState[answer.message_id] === Feedback.Positive
+                      ? { color: 'darkgreen', cursor: 'pointer' }
+                      : { color: 'slategray', cursor: 'pointer' }
+                  }
+                />
+                <ThumbDislike20Filled
+                  aria-hidden="false"
+                  aria-label="Dislike this response"
+                  onClick={() => onDislikeResponseClicked()}
+                  style={
+                    feedbackState !== Feedback.Positive &&
+                    feedbackState !== Feedback.Neutral &&
+                    feedbackState !== undefined
+                      ? { color: 'darkred', cursor: 'pointer' }
+                      : { color: 'slategray', cursor: 'pointer' }
+                  }
+                />
+              </Stack>
+            )}
+          </Stack>
+        </Stack.Item>
+        {isCopyNotificationVisible && (
+          <MessageBar
+            messageBarType={MessageBarType.success}
+            isMultiline={false}
+            onDismiss={() => setCopyNotificationVisible(false)}
+            dismissButtonAriaLabel="Close">
+            Response copied to clipboard
+          </MessageBar>
         )}
       </Stack>
       <Dialog
