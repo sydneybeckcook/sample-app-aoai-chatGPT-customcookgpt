@@ -676,9 +676,13 @@ async def stream_chat_request(request_body, request_headers):
             # logging.info(f"stream_chat_request - Upserting to token_usage_dev: {entry}")
             logging.info(f"RESPONSE OBJECT {response_obj}")
             if response_obj and ("choices" in response_obj) and (len(response_obj["choices"])>0):
-                content = response_obj["choices"][0]["messages"][0]["content"]
+                messages = response_obj["choices"][0]["messages"]
+                message = messages[0]
+                content = message["content"]
+                role = message["role"]
                 logging.info(f"stream_chat_request - content - {content}")
-                if content:
+                logging.info(f"stream_chat_request - role - {role}")
+                if content and role == "assistant" and not content.startswith('{"citations": ['):
                     entry = await token_limits.update_usage_from_message(
                         request_headers=request_headers,
                         message=content,
