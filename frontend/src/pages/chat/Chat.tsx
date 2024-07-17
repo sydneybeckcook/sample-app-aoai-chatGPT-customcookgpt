@@ -824,9 +824,9 @@ const Chat = () => {
           <div className={styles.modelToggleContainer}>
             <span className={styles.modelToggleLabel}>GPT Version</span>
             <div className={styles.modelToggleButton} onClick={handleModelToggle}>
-              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35' ? '5px' : '56px' }}></div>
+              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35-turbo' ? '5px' : '56px' }}></div>
               <span 
-                className={`${styles.labelLeft} ${selectedModel === 'gpt-35' ? styles.toggled : ''}`}
+                className={`${styles.labelLeft} ${selectedModel === 'gpt-35-turbo' ? styles.toggled : ''}`}
                 data-tooltip-html="<b>GPT-3.5:</b> Delivers efficient and accurate results suitable for most applications.<br><br>
                                     <b>When to use:</b> Best for standard queries, where speed and cost efficiency are priorities."
                 data-tooltip-id="modelTooltip"
