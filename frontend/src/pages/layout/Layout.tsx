@@ -3,9 +3,11 @@ import { Link, Outlet } from 'react-router-dom'
 import { Dialog, Stack, TextField, DefaultButton, Slider } from '@fluentui/react'
 import { CopyRegular } from '@fluentui/react-icons'
 
-import { CosmosDBStatus, getOrCreateUserSettings, updateUserSettings } from '../../api'
+// import {getOrCreateUserSettings, updateUserSettings } from '../../api'
+import { CosmosDBStatus} from '../../api'
 import Contoso from '../../assets/Contoso.svg'
-import { HistoryButton, ShareButton, HelpButton, SettingsButton } from '../../components/common/Button'
+// import { SettingsButton } from '../../components/common/Button'
+import { HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
 import PrivacyNotice from "../../constants/privacyNotice"
@@ -14,7 +16,7 @@ import styles from './Layout.module.css'
 
 const Layout = () => {
   const [isSharePanelOpen, setIsSharePanelOpen] = useState<boolean>(false)
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState<boolean>(false)
+  // const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState<boolean>(false)
   const [copyClicked, setCopyClicked] = useState<boolean>(false)
   const [copyText, setCopyText] = useState<string>('Copy URL')
   const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
@@ -27,10 +29,10 @@ const Layout = () => {
   const currentUserId = appStateContext?.state.currentUserId
   const [shareableLink, setShareableLink] = useState('')
   const ui = appStateContext?.state.frontendSettings?.ui
-  const defaultSystemMessage = import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE || "You are an AI assistant that helps Cook Medical employees find information.";
-  const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
-  const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
-  const [temperature, setTemperature] = useState(defaultTemperature);
+  // const defaultSystemMessage = import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE || "You are an AI assistant that helps Cook Medical employees find information.";
+  // const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
+  // const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
+  // const [temperature, setTemperature] = useState(defaultTemperature);
 
   const handleShareClick = (link: string) => {
     setShareableLink(link)
@@ -53,42 +55,42 @@ const Layout = () => {
   }
 
 
-  const handleSettingsClick = async () => {
-    setIsSettingsPanelOpen(true);
-    console.log('currentUserId:', {currentUserId})
-    if (currentUserId) {
-      console.log('currentUserId:', 'true')
-      const settings = await getOrCreateUserSettings(currentUserId);
-      console.log("settings", settings)
-      if (settings) {
-          setSystemMessage(settings.systemMessage);
-          setTemperature(settings.temperature);
-      }
-    }
-  }
+  // const handleSettingsClick = async () => {
+  //   setIsSettingsPanelOpen(true);
+  //   console.log('currentUserId:', {currentUserId})
+  //   if (currentUserId) {
+  //     console.log('currentUserId:', 'true')
+  //     const settings = await getOrCreateUserSettings(currentUserId);
+  //     console.log("settings", settings)
+  //     if (settings) {
+  //         setSystemMessage(settings.systemMessage);
+  //         setTemperature(settings.temperature);
+  //     }
+  //   }
+  // }
 
-  const handleSettingsPanelDismiss = () => {
-    console.log('Dismissing settings panel with values:', { currentUserId, systemMessage, temperature });
-    setIsSettingsPanelOpen(false);
+  // const handleSettingsPanelDismiss = () => {
+  //   console.log('Dismissing settings panel with values:', { currentUserId, systemMessage, temperature });
+  //   setIsSettingsPanelOpen(false);
 
-    if (currentUserId) {
-        console.log("Updating User Settings with values:", { currentUserId, systemMessage, temperature })
-        updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
-    }
-  }
+  //   if (currentUserId) {
+  //       console.log("Updating User Settings with values:", { currentUserId, systemMessage, temperature })
+  //       updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
+  //   }
+  // }
 
-  const handleSystemMessageChange = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
-    setSystemMessage(newValue || '');
-  }
+  // const handleSystemMessageChange = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
+  //   setSystemMessage(newValue || '');
+  // }
 
-  const handleTemperatureChange = (newValue: number) => {
-    setTemperature(newValue.toString());
-  }    
+  // const handleTemperatureChange = (newValue: number) => {
+  //   setTemperature(newValue.toString());
+  // }    
 
-  const resetToDefaults = () => {
-    setSystemMessage(defaultSystemMessage);
-    setTemperature(defaultTemperature);
-  }
+  // const resetToDefaults = () => {
+  //   setSystemMessage(defaultSystemMessage);
+  //   setTemperature(defaultTemperature);
+  // }
 
   
   const handleHelpClick = () => {
@@ -142,9 +144,9 @@ const Layout = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
-            {!appStateContext?.state.hideRightWrapperButtons && (
+            {/* {!appStateContext?.state.hideRightWrapperButtons && (
               <SettingsButton onClick={handleSettingsClick} text="Settings" />
-            )}
+            )} */}
             {ui?.show_share_button && currentConversationId && (
               <ShareButton
                 conversationId={currentConversationId}
@@ -224,7 +226,7 @@ const Layout = () => {
           <br></br>
         </div>
       </Dialog>
-      <Dialog
+      {/* <Dialog
         onDismiss={handleSettingsPanelDismiss}
         hidden={!isSettingsPanelOpen}
         dialogContentProps={{
@@ -282,7 +284,7 @@ const Layout = () => {
             }}
           />
         </div>
-      </Dialog>
+      </Dialog> */}
     </div>
 
     
