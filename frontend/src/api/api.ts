@@ -313,38 +313,38 @@ export const historyEnsure = async (): Promise<CosmosDBHealth> => {
   return response
 }
 
-export const getOrCreateUserSettings = async (userId: string) => {
-  try {
-      const response = await fetch(`/api/settings/${userId}`);
-      if (!response.ok) {
-          throw new Error('Network response was not ok');
-      }
-      return await response.json();
-  } catch (error) {
-      console.error('Error fetching settings:', error);
-  }
-};
+// export const getOrCreateUserSettings = async (userId: string) => {
+//   try {
+//       const response = await fetch(`/api/settings/${userId}`);
+//       if (!response.ok) {
+//           throw new Error('Network response was not ok');
+//       }
+//       return await response.json();
+//   } catch (error) {
+//       console.error('Error fetching settings:', error);
+//   }
+// };
 
-export const updateUserSettings = async (userId: string, systemMessage: string, temperature: number) => {
-  console.log(`Updating user settings for userId: ${userId} with systemMessage: ${systemMessage} and temperature: ${temperature}`);
-  try {
-      const response = await fetch(`/api/settings/${userId}`, {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ systemMessage, temperature }),
-      });
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Error updating settings:', response.status, response.statusText, errorText);
-          throw new Error('Network response was not ok');
-      }
-      return await response.json();
-  } catch (error) {
-      console.error('Error updating settings:', error);
-  }
-};
+// export const updateUserSettings = async (userId: string, systemMessage: string, temperature: number) => {
+//   console.log(`Updating user settings for userId: ${userId} with systemMessage: ${systemMessage} and temperature: ${temperature}`);
+//   try {
+//       const response = await fetch(`/api/settings/${userId}`, {
+//           method: 'POST',
+//           headers: {
+//               'Content-Type': 'application/json',
+//           },
+//           body: JSON.stringify({ systemMessage, temperature }),
+//       });
+//       if (!response.ok) {
+//           const errorText = await response.text();
+//           console.error('Error updating settings:', response.status, response.statusText, errorText);
+//           throw new Error('Network response was not ok');
+//       }
+//       return await response.json();
+//   } catch (error) {
+//       console.error('Error updating settings:', error);
+//   }
+// };
 
 
 export const frontendSettings = async (): Promise<Response | null> => {
