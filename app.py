@@ -349,33 +349,33 @@ async def record_privacy_response():
         await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 
-async def check_or_create_user_settings(user_id):
-    logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
-    cosmos_settings_client = init_cosmos_settings_client()
-    try:
-        user_settings_manager = UserSettingsManager(cosmos_settings_client)
-        logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
-        user_settings = await user_settings_manager.get_user_settings(user_id)
-        logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
+# async def check_or_create_user_settings(user_id):
+#     logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
+#     cosmos_settings_client = init_cosmos_settings_client()
+#     try:
+#         user_settings_manager = UserSettingsManager(cosmos_settings_client)
+#         logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
+#         user_settings = await user_settings_manager.get_user_settings(user_id)
+#         logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
 
-        if not user_settings:
-            logging.debug("check_or_create_user_settings: No settings found, creating new settings")
-            default_system_message = app_settings.azure_openai.system_message
-            default_temperature = app_settings.azure_openai.temperature
+#         if not user_settings:
+#             logging.debug("check_or_create_user_settings: No settings found, creating new settings")
+#             default_system_message = app_settings.azure_openai.system_message
+#             default_temperature = app_settings.azure_openai.temperature
 
-            user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
-            logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
-        logging.debug(f"user_settings: {user_settings}")
-        return user_settings
+#             user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
+#             logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
+#         logging.debug(f"user_settings: {user_settings}")
+#         return user_settings
     
-    except Exception as e :
-        logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
-        return {
-            "systemMessage": app_settings.azure_openai.system_message,
-            "temperature": app_settings.azure_openai.temperature
-        }
-    finally:
-        await cosmos_settings_client.cosmosdb_client.close()
+#     except Exception as e :
+#         logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
+#         return {
+#             "systemMessage": app_settings.azure_openai.system_message,
+#             "temperature": app_settings.azure_openai.temperature
+#         }
+#     finally:
+#         await cosmos_settings_client.cosmosdb_client.close()
 
 
 
@@ -385,11 +385,17 @@ async def prepare_model_args(request_body, request_headers):
 
     authenticated_user_details = get_authenticated_user_details(request_headers)
     user_id = authenticated_user_details['user_principal_id']
-    user_settings = await check_or_create_user_settings(user_id)
-    user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
-    logging.debug(f"user_temperature: {user_temperature}")
-    user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
-    logging.debug(f"user_system_message: {user_system_message}")
+    
+    # user_settings = await check_or_create_user_settings(user_id)
+    # user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
+    # logging.debug(f"user_temperature: {user_temperature}")
+    # user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
+    # logging.debug(f"user_system_message: {user_system_message}")
+
+
+
+    user_system_message = app_settings.azure_openai.system_message
+    user_temperature = app_settings.azure_openai.temperature
     
     request_messages = request_body.get("messages", [])
     messages = []
@@ -447,10 +453,6 @@ async def prepare_model_args(request_body, request_headers):
         # if embedding_dependency:
         #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
         
-
-        
-        
-
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
         secret_params = [
@@ -615,33 +617,33 @@ def get_frontend_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
-async def user_settings(user_id):
-    cosmos_settings_client = init_cosmos_settings_client()
-    try:
-        user_settings_manager = UserSettingsManager(cosmos_settings_client)
-        if request.method == 'GET':
-            settings = await user_settings_manager.get_user_settings(user_id)
-            if settings is None: 
-                logging.info(f"Creating default settings for user_id: {user_id}")
-                await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
-            logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
-            return jsonify(settings)
+# @bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
+# async def user_settings(user_id):
+#     cosmos_settings_client = init_cosmos_settings_client()
+#     try:
+#         user_settings_manager = UserSettingsManager(cosmos_settings_client)
+#         if request.method == 'GET':
+#             settings = await user_settings_manager.get_user_settings(user_id)
+#             if settings is None: 
+#                 logging.info(f"Creating default settings for user_id: {user_id}")
+#                 await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
+#             logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
+#             return jsonify(settings)
 
-        elif request.method == 'POST':
-            new_settings = await request.json
-            logging.info(f"Received new settings for user_id: {user_id} - {new_settings}")
-            system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
-            temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
-            logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
-            updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
-            logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
-            return jsonify(updated_settings)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#         elif request.method == 'POST':
+#             new_settings = await request.json
+#             logging.info(f"Received new settings for user_id: {user_id} - {new_settings}")
+#             system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
+#             temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
+#             logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
+#             updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
+#             logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
+#             return jsonify(updated_settings)
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-    finally:
-        await cosmos_settings_client.cosmosdb_client.close()
+#     finally:
+#         await cosmos_settings_client.cosmosdb_client.close()
     
 
 
