@@ -262,7 +262,7 @@
   width: 40px;
   height: 40px;
   left: 7px;
-  top: 66px;
+  top: 36px; /*hardcoded to align in center*/
   color: #ffffff;
   border-radius: 4px;
   z-index: 1;

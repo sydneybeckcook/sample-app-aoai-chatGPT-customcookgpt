@@ -5,6 +5,7 @@ import os
 import logging
 import uuid
 import httpx
+import datetime
 from dotenv import load_dotenv
 from quart import (
     Blueprint,
@@ -118,6 +119,7 @@ def get_model_configuration(selected_model):
             "key": app_settings.azure_openai.key_v3,
             "model_name": app_settings.azure_openai.model_name_v3
         },
+
         "gpt-4o": {
             "resource": app_settings.azure_openai.resource_v4,
             "model": app_settings.azure_openai.model_v4,
@@ -154,24 +156,12 @@ async def change_model():
     logging.info(f"change_model - Received POST request to change model to: {selected_model}")
 
     current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
-    logging.info(f"change_model - Current selected model: {current_model}")
+    logging.info(f"Current selected model: {current_model}")
 
     if set_model_config_in_session(selected_model):
         return jsonify({"change_model - message": "Model changed successfully", "current_model": selected_model}), 200
     else:
-        return jsonify({"change_model - error": "Invalid model selected", "current_model": current_model}), 400
-
-
-@bp.route("/get_user_id", methods=["GET"])
-def get_user_id():
-    try: 
-        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-        user_id = authenticated_user['user_principal_id']
-        return jsonify({"userId": user_id})
-    except Exception as e:
-        print(f"An error occurred: {e}")  # Log the error
-        return jsonify({"error": "An internal server error occurred"})
-
+        return jsonify({"error": "Invalid model selected", "current_model": current_model}), 400
 
 # Initialize Azure OpenAI Client
 def init_openai_client():
@@ -234,7 +224,6 @@ def init_openai_client():
         logging.exception("Exception in Azure OpenAI initialization", e)
         azure_openai_client = None
         raise e
-
 
 def prepare_cosmosdb_client_parameters():
     if app_settings.base_settings.is_local:
@@ -306,7 +295,54 @@ def init_cosmos_settings_client():
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
+    
+@bp.route("/get_user_id", methods=["GET"])
+def get_user_id():
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        return jsonify({"userId": user_id})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
 
+@bp.route("/check_privacy_response", methods=["GET"])
+async def check_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        response = await cosmos_privacy_notice_client.check_user_response(user_id)
+        has_responded = response is not None
+        return jsonify({"hasResponded": has_responded})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
+
+@bp.route("/privacy_notice")
+def privacy_notice():
+    return send_from_directory('frontend', 'privacy_notice.txt')
+
+@bp.route("/record_privacy_response", methods=["POST"])
+async def record_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try:
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        date = datetime.datetime.utcnow().isoformat()
+        data = await request.json
+        response = data.get("response")
+        result = await cosmos_privacy_notice_client.record_user_response(user_id, date, response)
+        return jsonify(result)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 async def check_user_token_limits(request_headers):
     cosmos_token_client = init_cosmos_token_client()
@@ -814,7 +850,6 @@ async def add_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client = init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -873,7 +908,6 @@ async def update_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -917,7 +951,6 @@ async def update_conversation():
 async def update_message():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
 
     ## check request for message_id
@@ -976,19 +1009,26 @@ async def delete_conversation():
 
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
-
-        ## delete the conversation messages from cosmos first
-        deleted_messages = await cosmos_conversation_client.delete_messages(
+        
+        soft_deleted_messages = await cosmos_conversation_client.soft_delete_messages(
             conversation_id, user_id
         )
 
-        ## Now delete the conversation
-        deleted_conversation = await cosmos_conversation_client.delete_conversation(
+        soft_deleted_conversation = await cosmos_conversation_client.soft_delete_conversation(
             user_id, conversation_id
         )
+
+        # ## delete the conversation messages from cosmos first
+        # deleted_messages = await cosmos_conversation_client.delete_messages(
+        #     conversation_id, user_id
+        # )
+
+        # ## Now delete the conversation
+        # deleted_conversation = await cosmos_conversation_client.delete_conversation(
+        #     user_id, conversation_id
+        # )
 
         await cosmos_conversation_client.cosmosdb_client.close()
 
@@ -1013,7 +1053,6 @@ async def list_conversations():
     user_id = authenticated_user["user_principal_id"]
 
     ## make sure cosmos is configured
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
@@ -1044,7 +1083,6 @@ async def get_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
@@ -1099,7 +1137,6 @@ async def rename_conversation():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
-    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -1140,7 +1177,6 @@ async def delete_all_conversations():
     try:
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -1152,15 +1188,22 @@ async def delete_all_conversations():
 
         # delete each conversation
         for conversation in conversations:
-            ## delete the conversation messages from cosmos first
-            deleted_messages = await cosmos_conversation_client.delete_messages(
+            soft_deleted_messages = await cosmos_conversation_client.soft_delete_messages(
                 conversation["id"], user_id
             )
 
-            ## Now delete the conversation
-            deleted_conversation = await cosmos_conversation_client.delete_conversation(
+            soft_deleted_conversation = await cosmos_conversation_client.soft_delete_conversation(
                 user_id, conversation["id"]
             )
+            # ## delete the conversation messages from cosmos first
+            # deleted_messages = await cosmos_conversation_client.delete_messages(
+            #     conversation["id"], user_id
+            # )
+
+            # ## Now delete the conversation
+            # deleted_conversation = await cosmos_conversation_client.delete_conversation(
+            #     user_id, conversation["id"]
+            # )
         await cosmos_conversation_client.cosmosdb_client.close()
         return (
             jsonify(
@@ -1192,12 +1235,14 @@ async def clear_messages():
 
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
-        ## delete the conversation messages from cosmos
-        deleted_messages = await cosmos_conversation_client.delete_messages(
+        # ## delete the conversation messages from cosmos
+        # deleted_messages = await cosmos_conversation_client.delete_messages(
+        #     conversation_id, user_id
+        # )
+        soft_deleted_messages = await cosmos_conversation_client.soft_delete_messages(
             conversation_id, user_id
         )
 

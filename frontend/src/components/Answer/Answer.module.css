@@ -184,6 +184,25 @@ sup {
   line-height: 10px;
 }
 
+.footerIcons {
+  position: relative;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: row;
+}
+
+.iconsContainer {
+  gap: 10px;
+}
+
+.feedbackIcons {
+  gap: 10px;
+}
+
+.copyButton {
+  color: slategray;
+}
+
 @media (max-width: 480px) {
   .answerFooter {
     flex-direction: column-reverse;

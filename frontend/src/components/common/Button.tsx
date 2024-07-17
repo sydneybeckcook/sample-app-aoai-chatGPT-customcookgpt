@@ -1,24 +1,42 @@
-import { CommandBarButton, DefaultButton, IButtonProps, IButtonStyles, ICommandBarStyles } from '@fluentui/react'
+import { CommandBarButton, DefaultButton, IButtonProps, ICommandBarStyles, IButtonStyles } from '@fluentui/react'
 
 import styles from './Button.module.css'
 
-interface ButtonProps extends IButtonProps {
-  onClick: () => void
-  text: string | undefined
+interface ShareButtonProps {
+  conversationId: string;
+  onShareClick: (link: string) => void;
 }
 
-export const ShareButton: React.FC<ButtonProps> = ({ onClick, text }) => {
+export const ShareButton: React.FC<ShareButtonProps> = ({  conversationId, onShareClick }) => {
+
+  const handleShare = async (conversationId: string) => {
+    try {
+        const response = await fetch(`/api/share/${conversationId}`);
+        const data = await response.json();
+        if (data.shareableLink) {
+          onShareClick(data.shareableLink);
+        }
+    } catch (error) {
+        console.error('Error sharing conversation:', error);
+    }
+  }; 
   return (
     <CommandBarButton
       className={styles.shareButtonRoot}
       iconProps={{ iconName: 'Share' }}
-      onClick={onClick}
-      text={text}
+      onClick={()=>handleShare(conversationId)}
+      text="Share"
     />
   )
 }
 
-export const HistoryButton: React.FC<ButtonProps> = ({ onClick, text }) => {
+interface HistoryButtonProps extends IButtonProps {
+  onClick: () => void;
+  text: string;
+}
+
+
+export const HistoryButton: React.FC<HistoryButtonProps> = ({ onClick, text }) => {
   return (
     <DefaultButton
       className={styles.historyButtonRoot}
@@ -32,6 +50,37 @@ export const HistoryButton: React.FC<ButtonProps> = ({ onClick, text }) => {
 interface HelpButtonProps extends IButtonProps {
   onClick: () => void;
   text: string;
+}
+
+export const HelpButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
+  const HelpButtonStyles: ICommandBarStyles & IButtonStyles = {
+      root: {
+          width: '80px',
+          border: `1px solid #D1D1D1`,
+        },
+        rootHovered: {
+          border: `1px solid #D1D1D1`,
+        },
+        rootPressed: {
+          border: `1px solid #D1D1D1`,
+        },
+    };
+
+    return (
+      <DefaultButton
+          text={text}
+          iconProps={{ 
+            iconName: 'StatusCircleQuestionMark', 
+            styles: {
+              root: {
+                  fontSize: '20px',
+              },
+          },
+          }}
+          onClick={onClick}
+          styles={HelpButtonStyles}
+      />
+    )
 }
 
 export const SettingsButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
@@ -64,5 +113,3 @@ export const SettingsButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
       />
     )
 }
-
-

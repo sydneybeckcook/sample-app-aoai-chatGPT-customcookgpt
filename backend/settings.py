@@ -41,11 +41,15 @@ class _UiSettings(BaseSettings):
         env_ignore_empty=True
     )
 
-    title: str = "Contoso"
+    title: str = "Custom CookGPT Beta"
     logo: Optional[str] = None
     chat_logo: Optional[str] = None
-    chat_title: str = "Start chatting"
-    chat_description: str = "This chatbot is configured to answer your questions"
+    chat_title: str = "Start exploring OpenAI models."
+    chat_description: str = (
+        "This private and internal chatbot is configured to respond to your prompts safely and securely.<br /><br />"
+        "GPT-3.5 is the fastest model, great for most everyday tasks ($). <br /><br />"
+        "GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$)."
+    )
     favicon: str = "/favicon.ico"
     show_share_button: bool = True
 
@@ -116,8 +120,12 @@ class _AzureOpenAISettings(BaseSettings):
         env_ignore_empty=True,
         protected_namespaces=('t', 's', 'e')
     )
-
-    temperature: float = 0
+    
+    # model: str
+    # key: Optional[str] = None
+    # resource: Optional[str] = None
+    # endpoint: Optional[str] = None
+    temperature: float = 0.7
     top_p: float = 0
     max_tokens: int = 1000
     stream: bool = True
@@ -136,22 +144,19 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
 
-
     model_v3: str
     model_name_v3: str
     key_v3: Optional[str] = None
     resource_v3: Optional[str] = None
     endpoint_v3: Optional[str] = None
 
-
     model_v4: str
     model_name_v4: str
     key_v4: Optional[str] = None
     resource_v4: Optional[str] = None
     endpoint_v4: Optional[str] = None
-
-
     
+
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:
@@ -199,19 +204,23 @@ class _AzureOpenAISettings(BaseSettings):
 
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
-        if self.endpoint_v3 or self.endpoint_v4:
-            return self
-        
-        if self.resource_v3:
-            self.endpoint_v3 = f"https://{self.resource_v3}.openai.azure.com"
+        if self.endpoint_v3:
             return self
 
-        if self.resource_v4:
-            self.endpoint_v4 = f"https://{self.resource_v4}.openai.azure.com"
-            return self
+        elif self.resource_v3:
+            self.endpoint_v3 = f"https://{self.resource_v3}.openai.azure.com"
         
-        raise ValidationError("AZURE_OPENAI_ENDPOINT_V3 or AZURE_OPENAI_RESOURCE_V3 is required")
-            
+        if self.endpoint_v4:
+            return self
+
+        elif self.resource_v4:
+            self.endpoint_v4 = f"https://{self.resource_v4}.openai.azure.com"
+
+        if not self.endpoint_v3 and not self.endpoint_v4:
+            raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required for both v3 and v4")
+        
+        return self
+        
     def extract_embedding_dependency(self) -> Optional[dict]:
         if self.embedding_name:
             return {
@@ -283,7 +292,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["azure_search"] = PrivateAttr(default="azure_search")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     service: str = Field(exclude=True)
     endpoint_suffix: str = Field(default="search.windows.net", exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -398,7 +407,7 @@ class _AzureCosmosDbMongoVcoreSettings(
     _type: Literal["azure_cosmosdb"] = PrivateAttr(default="azure_cosmosdb")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     query_type: Literal['vector'] = "vector"
     connection_string: str = Field(exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -467,7 +476,7 @@ class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["elasticsearch"] = PrivateAttr(default="elasticsearch")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     endpoint: str
     encoded_api_key: str = Field(exclude=True)
     index: str = Field(serialization_alias="index_name")
@@ -540,7 +549,7 @@ class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["pinecone"] = PrivateAttr(default="pinecone")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     environment: str
     api_key: str = Field(exclude=True)
     index_name: str
@@ -610,7 +619,7 @@ class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
     _type: Literal["azure_ml_index"] = PrivateAttr(default="azure_ml_index")
     top_k: int = Field(default=5, serialization_alias="top_n_documents")
     strictness: int = 3
-    enable_in_domain: bool = Field(default=True, serialization_alias="in_scope")
+    enable_in_domain: bool = Field(default=False, serialization_alias="in_scope")
     name: str
     version: str
     project_resource_id: str = Field(validation_alias="AZURE_ML_PROJECT_RESOURCE_ID")
