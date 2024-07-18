@@ -5,12 +5,13 @@ from azure.cosmos import exceptions
   
 class CosmosConversationClient():
     
-    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, container_name: str, enable_message_feedback: bool = False):
+    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, container_name: str, enable_message_feedback: bool = False,total_tokens: int=1000):
         self.cosmosdb_endpoint = cosmosdb_endpoint
         self.credential = credential
         self.database_name = database_name
         self.container_name = container_name
         self.enable_message_feedback = enable_message_feedback
+        self.total_tokens = total_tokens
         try:
             self.cosmosdb_client = CosmosClient(self.cosmosdb_endpoint, credential=credential)
         except exceptions.CosmosHttpResponseError as e:
@@ -52,7 +53,9 @@ class CosmosConversationClient():
             'createdAt': datetime.utcnow().isoformat(),  
             'updatedAt': datetime.utcnow().isoformat(),  
             'userId': user_id,
-            'title': title
+            'title': title,
+            'totalToken': self.total_tokens,
+            'usedToken': 0
         }
         ## TODO: add some error handling based on the output of the upsert_item call
         resp = await self.container_client.upsert_item(conversation)  
@@ -181,3 +184,16 @@ class CosmosConversationClient():
 
         return messages
 
+    async def get_token_usage_ratio(self, user_id, conversation_id):
+        conversation = await self.get_conversation(user_id, conversation_id)
+        if not conversation:
+            return "Conversation not found"
+        
+        used_tokens = conversation['usedTokens']
+        total_tokens = conversation['totalTokens']
+        
+        if total_tokens == 0:
+            return 0
+        
+        token_usage_ratio = used_tokens / total_tokens
+        return token_usage_ratio
