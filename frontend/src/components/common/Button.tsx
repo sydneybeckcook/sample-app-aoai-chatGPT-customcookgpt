@@ -7,28 +7,40 @@ interface ShareButtonProps {
   onShareClick: (link: string) => void;
 }
 
-export const ShareButton: React.FC<ShareButtonProps> = ({  conversationId, onShareClick }) => {
+export const ShareButton: React.FC<ShareButtonProps> = ({ conversationId, onShareClick }) => {
 
   const handleShare = async (conversationId: string) => {
     try {
-        const response = await fetch(`/api/share/${conversationId}`);
-        const data = await response.json();
-        if (data.shareableLink) {
-          onShareClick(data.shareableLink);
-        }
+      const response = await fetch(`/api/share/${conversationId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Response is not JSON');
+      }
+
+      const data = await response.json();
+      if (data.shareableLink) {
+        onShareClick(data.shareableLink);
+      } else {
+        console.error('Unexpected response data:', data);
+      }
     } catch (error) {
-        console.error('Error sharing conversation:', error);
+      console.error('Error sharing conversation:', error);
     }
-  }; 
+  };
+
   return (
     <CommandBarButton
       className={styles.shareButtonRoot}
       iconProps={{ iconName: 'Share' }}
-      onClick={()=>handleShare(conversationId)}
+      onClick={() => handleShare(conversationId)}
       text="Share"
     />
-  )
-}
+  );
+};
 
 interface HistoryButtonProps extends IButtonProps {
   onClick: () => void;

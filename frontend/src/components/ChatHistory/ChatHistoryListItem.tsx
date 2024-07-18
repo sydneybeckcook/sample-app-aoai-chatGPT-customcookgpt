@@ -116,6 +116,10 @@ export const ChatHistoryListItemCell: React.FC<ChatHistoryListItemCellProps> = (
   const handleSelectItem = () => {
     onSelect(item)
     appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: item })
+    appStateContext?.dispatch({ 
+      type: 'UPDATE_CURRENT_CONVERSATION_ID', 
+      payload: item.id 
+    });
   }
 
   const truncatedTitle = item?.title?.length > 28 ? `${item.title.substring(0, 28)} ...` : item.title

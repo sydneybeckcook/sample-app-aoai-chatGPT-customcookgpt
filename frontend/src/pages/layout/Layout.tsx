@@ -8,7 +8,7 @@ import Contoso from '../../assets/Contoso.svg'
 import { HistoryButton, ShareButton, HelpButton, SettingsButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
-import PrivacyNotice from "../../constants/privacyNotice"
+import PrivacyNotice from '../../constants/privacyNotice'
 
 import styles from './Layout.module.css'
 
@@ -27,10 +27,12 @@ const Layout = () => {
   const currentUserId = appStateContext?.state.currentUserId
   const [shareableLink, setShareableLink] = useState('')
   const ui = appStateContext?.state.frontendSettings?.ui
-  const defaultSystemMessage = import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE || "You are an AI assistant that helps Cook Medical employees find information.";
-  const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
-  const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
-  const [temperature, setTemperature] = useState(defaultTemperature);
+  const defaultSystemMessage =
+    import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE ||
+    'You are an AI assistant that helps Cook Medical employees find information.'
+  const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || '0.7'
+  const [systemMessage, setSystemMessage] = useState(defaultSystemMessage)
+  const [temperature, setTemperature] = useState(defaultTemperature)
 
   const handleShareClick = (link: string) => {
     setShareableLink(link)
@@ -44,53 +46,54 @@ const Layout = () => {
   }
 
   const handleCopyClick = () => {
-    navigator.clipboard.writeText(window.location.href)
-    setCopyClicked(true)
-  }
+    navigator.clipboard.writeText(shareableLink);
+    setCopyClicked(true);
+  };
 
   const handleHistoryClick = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_CHAT_HISTORY' })
   }
 
-
   const handleSettingsClick = async () => {
-    setIsSettingsPanelOpen(true);
-    console.log('currentUserId:', {currentUserId})
+    setIsSettingsPanelOpen(true)
+    console.log('currentUserId:', { currentUserId })
     if (currentUserId) {
       console.log('currentUserId:', 'true')
-      const settings = await getOrCreateUserSettings(currentUserId);
-      console.log("settings", settings)
+      const settings = await getOrCreateUserSettings(currentUserId)
+      console.log('settings', settings)
       if (settings) {
-          setSystemMessage(settings.systemMessage);
-          setTemperature(settings.temperature);
+        setSystemMessage(settings.systemMessage)
+        setTemperature(settings.temperature)
       }
     }
   }
 
   const handleSettingsPanelDismiss = () => {
-    console.log('Dismissing settings panel with values:', { currentUserId, systemMessage, temperature });
-    setIsSettingsPanelOpen(false);
+    console.log('Dismissing settings panel with values:', { currentUserId, systemMessage, temperature })
+    setIsSettingsPanelOpen(false)
 
     if (currentUserId) {
-        console.log("Updating User Settings with values:", { currentUserId, systemMessage, temperature })
-        updateUserSettings(currentUserId, systemMessage, parseFloat(temperature));
+      console.log('Updating User Settings with values:', { currentUserId, systemMessage, temperature })
+      updateUserSettings(currentUserId, systemMessage, parseFloat(temperature))
     }
   }
 
-  const handleSystemMessageChange = (event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>, newValue?: string) => {
-    setSystemMessage(newValue || '');
+  const handleSystemMessageChange = (
+    event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>,
+    newValue?: string
+  ) => {
+    setSystemMessage(newValue || '')
   }
 
   const handleTemperatureChange = (newValue: number) => {
-    setTemperature(newValue.toString());
-  }    
-
-  const resetToDefaults = () => {
-    setSystemMessage(defaultSystemMessage);
-    setTemperature(defaultTemperature);
+    setTemperature(newValue.toString())
   }
 
-  
+  const resetToDefaults = () => {
+    setSystemMessage(defaultSystemMessage)
+    setTemperature(defaultTemperature)
+  }
+
   const handleHelpClick = () => {
     setIsHelpPanelOpen(true)
   }
@@ -131,10 +134,10 @@ const Layout = () => {
       <PrivacyNotice />
       <header className={styles.header} role={'banner'}>
         <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
-            <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
-            <Link to="/" className={styles.headerTitleContainer}>
-              <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
-            </Link>
+          <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
+          <Link to="/" className={styles.headerTitleContainer}>
+            <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
+          </Link>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && (
               <HistoryButton
@@ -145,11 +148,9 @@ const Layout = () => {
             {!appStateContext?.state.hideRightWrapperButtons && (
               <SettingsButton onClick={handleSettingsClick} text="Settings" />
             )}
+            {!appStateContext?.state.hideRightWrapperButtons && <HelpButton onClick={handleHelpClick} text="Help" />}
             {ui?.show_share_button && currentConversationId && (
-              <ShareButton
-                conversationId={currentConversationId}
-                onShareClick={handleShareClick}
-              />
+              <ShareButton conversationId={currentConversationId} onShareClick={handleShareClick} />
             )}
           </Stack>
         </Stack>
@@ -284,10 +285,6 @@ const Layout = () => {
         </div>
       </Dialog>
     </div>
-
-    
-    
-
   )
 }
 

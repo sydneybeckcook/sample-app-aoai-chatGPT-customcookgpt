@@ -358,6 +358,10 @@ const Chat = () => {
     let conversation
     if (conversationId) {
       conversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
+      appStateContext?.dispatch({ 
+        type: 'UPDATE_CURRENT_CONVERSATION_ID', 
+        payload: conversationId 
+      });
       if (!conversation) {
         console.error('Conversation not found.')
         setIsLoading(false)
@@ -382,6 +386,11 @@ const Chat = () => {
       const response = conversationId
         ? await historyGenerate(request, abortController.signal, conversationId)
         : await historyGenerate(request, abortController.signal)
+        if (conversationId) 
+          appStateContext?.dispatch({ 
+              type: 'UPDATE_CURRENT_CONVERSATION_ID', 
+              payload: conversationId
+        });
       if (!response?.ok) {
         const responseJson = await response.json()
         errorResponseMessage =
@@ -395,6 +404,10 @@ const Chat = () => {
         let resultConversation
         if (conversationId) {
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
+          appStateContext?.dispatch({ 
+            type: 'UPDATE_CURRENT_CONVERSATION_ID', 
+            payload: conversationId 
+          });
           if (!resultConversation) {
             console.error('Conversation not found.')
             setIsLoading(false)
@@ -411,6 +424,7 @@ const Chat = () => {
           return
         }
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
+        appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: conversationId })
         setMessages([...resultConversation.messages])
         return
       }
@@ -654,6 +668,7 @@ const Chat = () => {
     setIsIntentsPanelOpen(false)
     setActiveCitation(undefined)
     appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: null })
+    appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: null });
     setProcessMessages(messageStatus.Done)
   }
 
@@ -674,6 +689,7 @@ const Chat = () => {
   useLayoutEffect(() => {
     const saveToDB = async (messages: ChatMessage[], id: string) => {
       const response = await historyUpdate(messages, id)
+      appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: id })
       return response
     }
 

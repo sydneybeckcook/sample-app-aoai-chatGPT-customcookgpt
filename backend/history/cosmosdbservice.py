@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from flask import Flask, request
 from azure.identity import DefaultAzureCredential  
+import logging
 
 class CosmosConversationClient():
     
@@ -193,21 +194,40 @@ class CosmosConversationClient():
     
     async def share_conversation(self, user_id, conversation_id):
         # Retrieve the conversation
-        conversation = await self.convos_container_client.read_item(item=conversation_id, partition_key=user_id)
+        try:
+            logging.info(f"Attempting to retrieve conversation with user_id: {user_id}, conversation_id: {conversation_id}")
+            conversation = await self.convos_container_client.read_item(item=conversation_id, partition_key=user_id)
+            logging.info(f"Retrieved conversation: {conversation}")
+        except Exception as e:
+            logging.error(f"Error retrieving conversation: {e}")
+            return False
+
         if not conversation:
+            logging.error("No conversation found.")
             return False
 
         # Retrieve messages associated with the conversation
-        messages = self.get_messages(user_id, conversation_id)
+        try:
+            logging.info(f"Retrieving messages for user_id: {user_id}, conversation_id: {conversation_id}")
+            messages = await self.get_messages(user_id, conversation_id)  # Ensure this is awaited if it's async
+            logging.info(f"Retrieved messages: {messages}")
+        except Exception as e:
+            logging.error(f"Error retrieving messages: {e}")
+            return False
 
         # Check if a shared conversation for this originalConversationId already exists
-        existing_shared_conversation_query = f"SELECT * FROM c WHERE c.originalConversationId =  @conversationId"
-        parameters = [{"name":" @conversationId", "value": conversation_id}]
+        existing_shared_conversation_query = "SELECT * FROM c WHERE c.originalConversationId = @conversationId"
+        parameters = [{"name": "@conversationId", "value": conversation_id}]
+        logging.info(f"Running query: {existing_shared_conversation_query} with parameters: {parameters}")
 
-        existing_shared_conversations=[]
-        async for item in self.shared_convos_container_client.query_items(query=existing_shared_conversation_query, parameters=parameters):
-            existing_shared_conversations.append(item)
-
+        existing_shared_conversations = []
+        try:
+            async for item in self.shared_convos_container_client.query_items(query=existing_shared_conversation_query, parameters=parameters):
+                existing_shared_conversations.append(item)
+                logging.info(f"Found existing shared conversation: {item}")
+        except Exception as e:
+            logging.error(f"Error querying shared conversations: {e}")
+            return False
 
         if existing_shared_conversations:
             # If an existing shared conversation is found, use its ID to update
@@ -225,19 +245,34 @@ class CosmosConversationClient():
             'messages': messages
         }
 
-        # Upsert the shared conversation into the shared_conversations container
-        resp = await self.shared_convos_container_client.upsert_item(shared_conversation)
-        if resp:
-            return conversation_id  # Return the ID of the shared conversation
-        else:
+        logging.info(f"Upserting shared conversation: {shared_conversation}")
+        try:
+            resp = await self.shared_convos_container_client.upsert_item(shared_conversation)
+            logging.info(f"Upsert response: {resp}")
+            if resp:
+                logging.info(f"Successfully upserted shared conversation with ID: {shared_conversation_id}")
+                return shared_conversation_id  # Return the ID of the shared conversation
+            else:
+                logging.error("Failed to upsert shared conversation.")
+                return False
+        except Exception as e:
+            logging.error(f"Error upserting shared conversation: {e}")
             return False
-        
+
     async def get_shared_conversation(self, shared_conversation_id):
-        query = f"SELECT * FROM c WHERE c.originalConversationId = @sharedConversationId"
-        parameters = [{"name":" @sharedConversationId", "value": shared_conversation_id}]
-        conversations=[]
-        async for item in self.shared_convos_container_client.query_items(query=query, parameters=parameters):
-            conversations.append(item)
+        query = "SELECT * FROM c WHERE c.originalConversationId = @sharedConversationId"
+        parameters = [{"name": "@sharedConversationId", "value": shared_conversation_id}]
+        logging.info(f"Running query: {query} with parameters: {parameters}")
+
+        conversations = []
+        try:
+            async for item in self.shared_convos_container_client.query_items(query=query, parameters=parameters):
+                conversations.append(item)
+                logging.info(f"Found conversation: {item}")
+        except Exception as e:
+            logging.error(f"Error querying shared conversations: {e}")
+            return None
+
         return conversations[0] if conversations else None
     
 class CosmosTokenClient():

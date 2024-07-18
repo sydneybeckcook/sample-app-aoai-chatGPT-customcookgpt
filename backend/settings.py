@@ -705,6 +705,7 @@ class _BaseSettings(BaseSettings):
     use_promptflow: bool = False
     is_development: bool = False
     is_local: bool = False
+    webapp_name: Optional[str] = None
 
 
 class _AppSettings(BaseModel):

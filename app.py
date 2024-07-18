@@ -134,9 +134,7 @@ def set_model_config_in_session(selected_model):
         session["AZURE_OPENAI_MODEL_NAME"] = model_config["model_name"]
         session["AZURE_OPENAI_SELECTED_MODEL"] = selected_model
         session.modified = True
-        
-        logging.info(f"Model session set to: {selected_model}")
-        logging.info(f"Session updated with model config: {model_config}")
+    
         return True
     else:
         logging.error(f"Invalid model selected: {selected_model}")
@@ -147,10 +145,7 @@ async def change_model():
     data = await request.get_json()
     selected_model = data.get("selectedModel")
 
-    logging.info(f"Received request to change model to: {selected_model}")
-
     current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
-    logging.info(f"Current selected model: {current_model}")
 
     if set_model_config_in_session(selected_model):
         return jsonify({"message": "Model changed successfully", "current_model": selected_model}), 200
@@ -162,8 +157,6 @@ def init_openai_client():
     azure_openai_client = None
     try:
         # API version check
-        logging.debug(f"from app setting: {app_settings.azure_openai.preview_api_version}")
-        logging.debug(f"MINIMUM_SUPPORTED_AZURE_PREVIEW_API_VERSION: {MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION}")
         if (
             app_settings.azure_openai.preview_api_version
             < MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
@@ -220,15 +213,6 @@ def init_openai_client():
         raise e
 
 
-def prepare_cosmosdb_client_parameters():
-    if app_settings.base_settings.is_local:
-        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
-        cosmosdb_key = app_settings.chat_history.local_key
-    else:
-        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-        cosmosdb_key = app_settings.chat_history.account_key
-
-    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
 def prepare_cosmosdb_client_parameters():
     if app_settings.base_settings.is_local:
         cosmosdb_endpoint = app_settings.chat_history.local_endpoint
@@ -350,22 +334,16 @@ async def record_privacy_response():
 
 
 async def check_or_create_user_settings(user_id):
-    logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
     cosmos_settings_client = init_cosmos_settings_client()
     try:
         user_settings_manager = UserSettingsManager(cosmos_settings_client)
-        logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
         user_settings = await user_settings_manager.get_user_settings(user_id)
-        logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
 
         if not user_settings:
-            logging.debug("check_or_create_user_settings: No settings found, creating new settings")
             default_system_message = app_settings.azure_openai.system_message
             default_temperature = app_settings.azure_openai.temperature
 
             user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
-            logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
-        logging.debug(f"user_settings: {user_settings}")
         return user_settings
     
     except Exception as e :
@@ -387,9 +365,7 @@ async def prepare_model_args(request_body, request_headers):
     user_id = authenticated_user_details['user_principal_id']
     user_settings = await check_or_create_user_settings(user_id)
     user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
-    logging.debug(f"user_temperature: {user_temperature}")
     user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
-    logging.debug(f"user_system_message: {user_system_message}")
     
     request_messages = request_body.get("messages", [])
     messages = []
@@ -430,9 +406,6 @@ async def prepare_model_args(request_body, request_headers):
     }
 
     if app_settings.datasource:
-        logging.info(f"Request object: {request}")
-        logging.info(f"Request body {request_body}")
-        logging.info(f"Request headers {request_headers}")
         model_args["extra_body"] = {
             "data_sources": [
                 app_settings.datasource.construct_payload_configuration(
@@ -440,9 +413,7 @@ async def prepare_model_args(request_body, request_headers):
                 )
             ]
         }
-        logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
         model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
-        logging.info(f'model_args: model_args["extra_body"]["data_sources"][0]["parameters"]')
         # embedding_dependency = app_settings.azure_openai.extract_embedding_dependency()
         # if embedding_dependency:
         #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
@@ -485,8 +456,6 @@ async def prepare_model_args(request_body, request_headers):
                         "embedding_dependency"
                     ]["authentication"][field] = "*****"
 
-    logging.debug(f"REQUEST BODY: {json.dumps(model_args_clean, indent=4)}")
-
     return model_args
 
 
@@ -497,7 +466,6 @@ async def promptflow_request(request):
             "Authorization": f"Bearer {app_settings.promptflow.api_key}",
         }
         # Adding timeout for scenarios where response takes longer to come back
-        logging.debug(f"Setting timeout to {app_settings.promptflow.response_timeout}")
         async with httpx.AsyncClient(
             timeout=float(app_settings.promptflow.response_timeout)
         ) as client:
@@ -532,7 +500,6 @@ async def send_chat_request(request_body, request_headers):
             
     request_body['messages'] = filtered_messages
     model_args = await prepare_model_args(request_body, request_headers)
-    logging.debug(f"model_args: {model_args}")
 
     try:
         azure_openai_client = init_openai_client()
@@ -623,19 +590,14 @@ async def user_settings(user_id):
         if request.method == 'GET':
             settings = await user_settings_manager.get_user_settings(user_id)
             if settings is None: 
-                logging.info(f"Creating default settings for user_id: {user_id}")
                 await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
-            logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
             return jsonify(settings)
 
         elif request.method == 'POST':
             new_settings = await request.json
-            logging.info(f"Received new settings for user_id: {user_id} - {new_settings}")
             system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
             temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
-            logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
             updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
-            logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
             return jsonify(updated_settings)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1089,7 +1051,6 @@ async def ensure_cosmos():
     try:
         cosmos_conversation_client= init_cosmos_conversation_client()
         success, err = await cosmos_conversation_client.ensure()
-        logging.info(err)
         if not cosmos_conversation_client or not success:
             if err:
                 return jsonify({"error": err}), 422
@@ -1145,35 +1106,46 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
-# uncomment after merging with the latest version
-# @bp.route("/api/share/<conversation_id>", methods=["GET"])
-# def share_conversation(conversation_id):
-#     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-#     user_id = authenticated_user['user_principal_id']
 
-#     shared_conversation_id = cosmos_conversation_client.share_conversation(user_id, conversation_id)
-    
-#     if shared_conversation_id:
-#         base_url = "http://127.0.0.1:5000" if is_development else f"https://{AZURE_WEBAPP_NAME}.cookmedical.com"
-#         shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
-#         return jsonify({"shareableLink": shareable_link})
-#     else:
-#         return jsonify({"error": "Unable to share conversation"}), 500
-    
-# @bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
-# def get_shared_conversation(shared_conversation_id):
-#     try:
-#         conversation = cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
-#         if not conversation:
-#             return jsonify({"error": "Shared conversation not found"}), 404
+@bp.route("/api/share/<conversation_id>", methods=["GET"])
+async def share_conversation(conversation_id):
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    user_id = authenticated_user['user_principal_id']
 
-#         # Return the conversation data as JSON
-#         return jsonify(conversation)
-#     except Exception as e:
-#         # Log the exception for debugging
-#         print(f"An error occurred while fetching the shared conversation: {e}")
-#         # Return an error response
-#         return jsonify({"error": "An internal server error occurred"}), 500
+    cosmos_conversation_client = init_cosmos_conversation_client()
+
+    try:
+        logging.info(f"Sharing conversation with user_id: {user_id}, conversation_id: {conversation_id}")
+        shared_conversation_id = await cosmos_conversation_client.share_conversation(user_id, conversation_id)
+        
+        if shared_conversation_id:
+            is_local = os.getenv('IS_DEVELOPMENT', 'False') == 'True'
+            base_url = "http://127.0.0.1:50505" if is_local else f"https://{os.getenv('AZURE_WEBAPP_NAME')}.cookmedical.com"
+            shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
+            logging.info(f"Generated shareable link: {shareable_link}")
+            return jsonify({"shareableLink": shareable_link})
+        else:
+            return jsonify({"error": "Unable to share conversation"}), 500
+    except Exception as e:
+        logging.exception("Exception in /api/share/<conversation_id>")
+        return jsonify({"error": "An internal server error occurred"}), 500
+    finally:
+        await cosmos_conversation_client.cosmosdb_client.close()
+
+@bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
+async def get_shared_conversation(shared_conversation_id):
+    try:
+        cosmos_conversation_client = init_cosmos_conversation_client()
+        conversation = await cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
+        if not conversation:
+            return jsonify({"error": "Shared conversation not found"}), 404
+
+        return jsonify(conversation)
+    except Exception as e:
+        logging.exception("Exception in /api/get_shared_conversation/<shared_conversation_id>")
+        return jsonify({"error": "An internal server error occurred"}), 500
+    finally:
+        await cosmos_conversation_client.cosmosdb_client.close()
 
 
 app = create_app()
