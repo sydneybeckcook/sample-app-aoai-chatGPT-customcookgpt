@@ -174,6 +174,10 @@ def init_cosmosdb_client():
                 container_name=app_settings.chat_history.conversations_container,
                 enable_message_feedback=app_settings.chat_history.enable_feedback,
             )
+        # Example usage:
+        # client = CosmosConversationClient(cosmosdb_endpoint, credential, database_name, container_name)
+        # token_usage_ratio = await client.get_token_usage_ratio(user_id, conversation_id)
+
         except Exception as e:
             logging.exception("Exception in CosmosDB initialization", e)
             cosmos_conversation_client = None
