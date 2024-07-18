@@ -51,6 +51,7 @@ def create_app():
 
 @bp.route("/")
 async def index():
+    set_model_config_in_session(app_settings.azure_openai.model_v3)
     return await render_template(
         "index.html",
         title=app_settings.ui.title,
