@@ -14,7 +14,8 @@ from quart import (
     request,
     send_from_directory,
     render_template,
-    session
+    session,
+    current_app
 )
 
 from openai import AsyncAzureOpenAI
@@ -326,8 +327,8 @@ async def check_privacy_response():
         await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 @bp.route("/privacy_notice")
-def privacy_notice():
-    return send_from_directory('frontend', 'privacy_notice.txt')
+async def privacy_notice():
+    return await send_from_directory('frontend', 'privacy_notice.txt')
 
 @bp.route("/record_privacy_response", methods=["POST"])
 async def record_privacy_response():
