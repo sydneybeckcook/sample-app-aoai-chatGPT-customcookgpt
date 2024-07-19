@@ -119,6 +119,7 @@ def get_model_configuration(selected_model):
             "key": app_settings.azure_openai.key_v3,
             "model_name": app_settings.azure_openai.model_name_v3
         },
+
         "gpt-4o": {
             "resource": app_settings.azure_openai.resource_v4,
             "model": app_settings.azure_openai.model_v4,
@@ -155,7 +156,7 @@ async def change_model():
     logging.info(f"change_model - Received POST request to change model to: {selected_model}")
 
     current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
-    logging.info(f"change_model - Current selected model: {current_model}")
+    logging.info(f"Current selected model: {current_model}")
 
     if set_model_config_in_session(selected_model):
         return jsonify({"change_model - message": "Model changed successfully", "current_model": selected_model}), 200
@@ -236,16 +237,6 @@ def init_openai_client():
         azure_openai_client = None
         raise e
 
-
-def prepare_cosmosdb_client_parameters():
-    if app_settings.base_settings.is_local:
-        cosmosdb_endpoint = app_settings.chat_history.local_endpoint
-        cosmosdb_key = app_settings.chat_history.local_key
-    else:
-        cosmosdb_endpoint = f"https://{app_settings.chat_history.account}.documents.azure.com:443/"
-        cosmosdb_key = app_settings.chat_history.account_key
-
-    credentials = cosmosdb_key if cosmosdb_key else DefaultAzureCredential()
 def prepare_cosmosdb_client_parameters():
     if app_settings.base_settings.is_local:
         cosmosdb_endpoint = app_settings.chat_history.local_endpoint
@@ -316,6 +307,54 @@ def init_cosmos_settings_client():
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
+    
+@bp.route("/get_user_id", methods=["GET"])
+def get_user_id():
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        return jsonify({"userId": user_id})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+
+@bp.route("/check_privacy_response", methods=["GET"])
+async def check_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try: 
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        response = await cosmos_privacy_notice_client.check_user_response(user_id)
+        has_responded = response is not None
+        return jsonify({"hasResponded": has_responded})
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
+
+@bp.route("/privacy_notice")
+def privacy_notice():
+    return send_from_directory('frontend', 'privacy_notice.txt')
+
+@bp.route("/record_privacy_response", methods=["POST"])
+async def record_privacy_response():
+    cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
+    try:
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user['user_principal_id']
+        date = datetime.datetime.utcnow().isoformat()
+        data = await request.json
+        response = data.get("response")
+        result = await cosmos_privacy_notice_client.record_user_response(user_id, date, response)
+        return jsonify(result)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 
 async def check_user_token_limits(request_headers):
@@ -693,9 +732,13 @@ async def stream_chat_request(request_body, request_headers):
             # logging.info(f"stream_chat_request - Upserting to token_usage_dev: {entry}")
             logging.info(f"RESPONSE OBJECT {response_obj}")
             if response_obj and ("choices" in response_obj) and (len(response_obj["choices"])>0):
-                content = response_obj["choices"][0]["messages"][0]["content"]
+                messages = response_obj["choices"][0]["messages"]
+                message = messages[0]
+                content = message["content"]
+                role = message["role"]
                 logging.info(f"stream_chat_request - content - {content}")
-                if content:
+                logging.info(f"stream_chat_request - role - {role}")
+                if content and role == "assistant" and not content.startswith('{"citations": ['):
                     entry = await token_limits.update_usage_from_message(
                         request_headers=request_headers,
                         message=content,
@@ -822,7 +865,6 @@ async def add_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client = init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -881,7 +923,6 @@ async def update_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -925,7 +966,6 @@ async def update_conversation():
 async def update_message():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
 
     ## check request for message_id
@@ -984,7 +1024,6 @@ async def delete_conversation():
 
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
         
@@ -1030,7 +1069,6 @@ async def list_conversations():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
-    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -1060,7 +1098,6 @@ async def get_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
@@ -1115,7 +1152,6 @@ async def rename_conversation():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
-    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -1155,7 +1191,6 @@ async def delete_all_conversations():
     # get conversations for user
     try:
         ## make sure cosmos is configured
-        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
@@ -1214,7 +1249,6 @@ async def clear_messages():
             return jsonify({"error": "conversation_id is required"}), 400
 
         ## make sure cosmos is configured
-        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
