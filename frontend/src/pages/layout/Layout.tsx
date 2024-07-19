@@ -4,13 +4,13 @@ import { Dialog, Stack, TextField, DefaultButton, Slider } from '@fluentui/react
 import { CopyRegular } from '@fluentui/react-icons'
 
 // import {getOrCreateUserSettings, updateUserSettings } from '../../api'
-import { CosmosDBStatus} from '../../api'
+import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
 // import { SettingsButton } from '../../components/common/Button'
 import { HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
-import PrivacyNotice from "../../constants/privacyNotice"
+import PrivacyNotice from '../../constants/privacyNotice'
 
 import styles from './Layout.module.css'
 
@@ -54,7 +54,6 @@ const Layout = () => {
     appStateContext?.dispatch({ type: 'TOGGLE_CHAT_HISTORY' })
   }
 
-
   // const handleSettingsClick = async () => {
   //   setIsSettingsPanelOpen(true);
   //   console.log('currentUserId:', {currentUserId})
@@ -85,14 +84,13 @@ const Layout = () => {
 
   // const handleTemperatureChange = (newValue: number) => {
   //   setTemperature(newValue.toString());
-  // }    
+  // }
 
   // const resetToDefaults = () => {
   //   setSystemMessage(defaultSystemMessage);
   //   setTemperature(defaultTemperature);
   // }
 
-  
   const handleHelpClick = () => {
     setIsHelpPanelOpen(true)
   }
@@ -133,10 +131,10 @@ const Layout = () => {
       <PrivacyNotice />
       <header className={styles.header} role={'banner'}>
         <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
-            <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
-            <Link to="/" className={styles.headerTitleContainer}>
-              <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
-            </Link>
+          <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
+          <Link to="/" className={styles.headerTitleContainer}>
+            <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
+          </Link>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && (
               <HistoryButton
@@ -144,14 +142,12 @@ const Layout = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
+            {!appStateContext?.state.hideRightWrapperButtons && <HelpButton onClick={handleHelpClick} text="Help" />}
             {/* {!appStateContext?.state.hideRightWrapperButtons && (
               <SettingsButton onClick={handleSettingsClick} text="Settings" />
             )} */}
             {ui?.show_share_button && currentConversationId && (
-              <ShareButton
-                conversationId={currentConversationId}
-                onShareClick={handleShareClick}
-              />
+              <ShareButton conversationId={currentConversationId} onShareClick={handleShareClick} />
             )}
           </Stack>
         </Stack>
@@ -286,10 +282,6 @@ const Layout = () => {
         </div>
       </Dialog> */}
     </div>
-
-    
-    
-
   )
 }
 

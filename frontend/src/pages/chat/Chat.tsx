@@ -743,11 +743,17 @@ const Chat = () => {
     setIsIntentsPanelOpen(true)
   }
 
-  const onViewSource = (citation: Citation) => {
+  const onViewSource = (citation: Citation, event: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    event.preventDefault();
+  
     if (citation.url && !citation.url.includes('blob.core')) {
-      window.open(citation.url, '_blank')
+      window.open(citation.url, '_blank');
+    } else if (citation.title) {
+      const cleanedTitle = citation.title.replace(/-Rev\d+|\.pdf/g, '');
+      const url = `https://plmdata-cinc.cookgroup.nao/documents/${cleanedTitle}`;
+      window.open(url, "_blank");
     }
-  }
+  };
 
   const parseCitationFromMessage = (message: ChatMessage) => {
     if (message?.role && message?.role === 'tool') {
@@ -1029,7 +1035,8 @@ const Chat = () => {
                     ? activeCitation.url
                     : activeCitation.title ?? ''
                 }
-                onClick={() => onViewSource(activeCitation)}>
+                onClick={(event) => onViewSource(activeCitation, event)}
+              >
                 {activeCitation.title}
               </h5>
               <div tabIndex={0}>
