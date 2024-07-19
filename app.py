@@ -5,7 +5,7 @@ import os
 import logging
 import uuid
 import httpx
-import datetime
+from datetime import datetime
 from dotenv import load_dotenv
 from quart import (
     Blueprint,
