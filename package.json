@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "@types/node": "^20.14.10"
+  },
+  "dependencies": {
+    "react-mathjax": "^1.0.1"
   }
 }
