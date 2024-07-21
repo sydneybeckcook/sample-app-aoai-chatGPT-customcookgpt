@@ -118,7 +118,7 @@ class _AzureOpenAISettings(BaseSettings):
         env_file=DOTENV_PATH,
         extra='ignore',
         env_ignore_empty=True,
-        protected_namespaces=('t', 's', 'e')
+        protected_namespaces=('settings_',)
     )
     
     # model: str
@@ -150,8 +150,13 @@ class _AzureOpenAISettings(BaseSettings):
     key_v4: Optional[str] = None
     resource_v4: Optional[str] = None
     endpoint_v4: Optional[str] = None
-    
 
+    model_v3: str
+    model_name_v3: str
+    key_v3: Optional[str] = None
+    resource_v3: Optional[str] = None
+    endpoint_v3: Optional[str] = None
+    
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:
