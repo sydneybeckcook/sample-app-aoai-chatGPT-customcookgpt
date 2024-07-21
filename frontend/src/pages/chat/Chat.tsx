@@ -389,7 +389,7 @@ const Chat = () => {
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
-          content: `There was an error generating a response. Chat history can't be saved at this time. ${errorResponseMessage}`,
+          content: `There was an error generating a response: ${errorResponseMessage}`,
           date: new Date().toISOString()
         }
         let resultConversation

@@ -323,7 +323,7 @@ async def record_privacy_response():
     try:
         authenticated_user = get_authenticated_user_details(request_headers=request.headers)
         user_id = authenticated_user['user_principal_id']
-        date = datetime.datetime.utcnow().isoformat()
+        date = datetime.utcnow().isoformat()
         data = await request.json
         response = data.get("response")
         result = await cosmos_privacy_notice_client.record_user_response(user_id, date, response)
@@ -349,7 +349,7 @@ async def check_user_token_limits(request_headers):
 
         if current_cost >= user_daily_cost_limit:
             logging.error(f"check_user_token_limits - error: Token limit exceeded")
-            return jsonify({"error": "Token limit exceeded"}), 403
+            return jsonify({"error": "Token limit exceeded! Try again tomorrow or email CookGPT@cookmedical.com to request an increase in tokens."}), 403
         return None
     finally:
         await cosmos_token_client.cosmosdb_client.close()

@@ -41,6 +41,8 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
   const [showReportInappropriateFeedback, setShowReportInappropriateFeedback] = useState(false)
   const [negativeFeedbackList, setNegativeFeedbackList] = useState<Feedback[]>([])
+  const [isOtherChecked, setIsOtherChecked] = useState(false)
+  const [otherFeedback, setOtherFeedback] = useState('')
   const appStateContext = useContext(AppStateContext)
   const FEEDBACK_ENABLED =
     appStateContext?.state.frontendSettings?.feedback_enabled && appStateContext?.state.isCosmosDBAvailable?.cosmosDB
@@ -149,15 +151,32 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
 
   const onSubmitNegativeFeedback = async () => {
     if (answer.message_id == undefined) return
-    await historyMessageFeedback(answer.message_id, negativeFeedbackList.join(','))
-    resetFeedbackDialog()
-  }
 
+    let feedbackToSubmit = negativeFeedbackList.slice()
+    if (isOtherChecked) {
+      if (otherFeedback.trim() === '') {
+        alert('Please provide additional information for "Other".')
+        return
+      }
+      feedbackToSubmit = feedbackToSubmit.map(feedback =>
+        feedback === Feedback.OtherUnhelpful ? (`${feedback}: ${otherFeedback}` as Feedback) : feedback
+      )
+    }
+
+    await historyMessageFeedback(answer.message_id, feedbackToSubmit.join(','))
+    resetFeedbackDialog()
+    setOtherFeedback('') // Reset the other feedback input
+    setIsOtherChecked(false) // Reset the checkbox state
+  }
   const resetFeedbackDialog = () => {
     setIsFeedbackDialogOpen(false)
     setShowReportInappropriateFeedback(false)
     setNegativeFeedbackList([])
   }
+
+  const handleOtherFeedbackChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setOtherFeedback(e.target.value)
+  }, [])
 
   const UnhelpfulFeedbackContent = () => {
     return (
@@ -188,14 +207,31 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
             label="Other"
             id={Feedback.OtherUnhelpful}
             defaultChecked={negativeFeedbackList.includes(Feedback.OtherUnhelpful)}
-            onChange={updateFeedbackList}></Checkbox>
+            onChange={(ev, checked) => {
+              setIsOtherChecked(checked || false)
+              updateFeedbackList(ev, checked)
+            }}></Checkbox>
         </Stack>
-        <div onClick={() => setShowReportInappropriateFeedback(true)} style={{ color: '#115EA3', cursor: 'pointer' }}>
-          Report inappropriate content
-        </div>
       </>
     )
   }
+
+  const UnhelpfulFeedbackForm = useMemo(() => {
+    return (
+      <>
+        {isOtherChecked && (
+          <textarea
+            value={otherFeedback}
+            onChange={handleOtherFeedbackChange}
+            placeholder="Please specify"
+            rows={4} // Set the number of visible text lines
+            style={{ width: '100%' }} // Make sure it takes full width
+            required
+          />
+        )}
+      </>
+    )
+  }, [isOtherChecked, otherFeedback, handleOtherFeedbackChange])
 
   const ReportInappropriateFeedbackContent = () => {
     return (
@@ -423,11 +459,15 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
         }}>
         <Stack tokens={{ childrenGap: 4 }}>
           <div>Your feedback will improve this experience.</div>
-
-          {!showReportInappropriateFeedback ? <UnhelpfulFeedbackContent /> : <ReportInappropriateFeedbackContent />}
-
+          {!showReportInappropriateFeedback ? (
+            <>
+              <UnhelpfulFeedbackContent />
+              {UnhelpfulFeedbackForm}
+            </>
+          ) : (
+            <ReportInappropriateFeedbackContent />
+          )}
           <div>By pressing submit, your feedback will be visible to the application owner.</div>
-
           <DefaultButton disabled={negativeFeedbackList.length < 1} onClick={onSubmitNegativeFeedback}>
             Submit
           </DefaultButton>
