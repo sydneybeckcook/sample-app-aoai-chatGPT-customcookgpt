@@ -26,6 +26,7 @@ export interface AppState {
   currentConversationId: string | null
   currentUserId: string | null
   hideRightWrapperButtons: boolean
+  isLoading: boolean;
 }
 
 export type Action =
@@ -42,9 +43,9 @@ export type Action =
   | { type: 'FETCH_CHAT_HISTORY'; payload: Conversation[] | null }
   | { type: 'FETCH_FRONTEND_SETTINGS'; payload: FrontendSettings | null }
   | {
-      type: 'SET_FEEDBACK_STATE'
-      payload: { answerId: string; feedback: Feedback.Positive | Feedback.Negative | Feedback.Neutral }
-    }
+    type: 'SET_FEEDBACK_STATE'
+    payload: { answerId: string; feedback: Feedback.Positive | Feedback.Negative | Feedback.Neutral }
+  }
   | { type: 'GET_FEEDBACK_STATE'; payload: string }
   | { type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: string | null }
   | { type: 'UPDATE_CURRENT_USER_ID', payload: string | null }
@@ -64,14 +65,15 @@ const initialState: AppState = {
   feedbackState: {},
   currentConversationId: null,
   currentUserId: null,
-  hideRightWrapperButtons: false
+  hideRightWrapperButtons: false,
+  isLoading: true
 }
 
 export const AppStateContext = createContext<
   | {
-      state: AppState
-      dispatch: React.Dispatch<Action>
-    }
+    state: AppState
+    dispatch: React.Dispatch<Action>
+  }
   | undefined
 >(undefined)
 
