@@ -2,9 +2,14 @@
 import tiktoken
 import logging
 from datetime import datetime
+import os
 
 from backend.auth.auth_utils import get_authenticated_user_details
 from backend.history.cosmosdbservice import CosmosTokenClient
+from backend.settings import (
+    app_settings
+)
+from backend.tokens import token_privileges
 
 class TokenLimits:
     def __init__(self, cosmos_token_client: CosmosTokenClient):
@@ -89,8 +94,6 @@ class TokenLimits:
                            record['gpt35OutputTokens'] * gpt35_output_cost)
 
         return total_cost
-    
-
 
     async def get_todays_cost(self, user_id):
         today = datetime.utcnow().date().isoformat()
@@ -113,8 +116,6 @@ class TokenLimits:
 
         return cost_gpt35 + cost_gpt4
     
-
-
     def calculate_token_cost(self, tokens, model_used):
         if model_used.startswith('gpt-35-turbo'):
             input_cost = 0.003 / 1000  # $0.003 per 1,000 tokens
@@ -126,3 +127,39 @@ class TokenLimits:
             raise ValueError("Unknown model")
 
         return tokens['input'] * input_cost + tokens['output'] * output_cost
+    
+    async def get_user_daily_limit(self, user_type):
+        if user_type == 'regular':
+            daily_limit = app_settings.base_settings.daily_token_cost_limit_regular
+        elif user_type == 'super':
+            daily_limit = app_settings.base_settings.daily_token_cost_limit_super
+        else:
+            return {"error": "Unknown user privilege type"}
+        
+        return daily_limit
+
+    async def calculate_daily_usage_percentage(self, request_headers):
+        # Check user privileges
+        user_type = await token_privileges.check_user_token_privileges(request_headers)
+        if isinstance(user_type, dict) and "error" in user_type:
+            return user_type
+        
+        # Get user details
+        user_details = get_authenticated_user_details(request_headers)
+        if not user_details:
+            return {"error": "User not authenticated"}
+        
+        user_id = user_details['user_principal_id']
+
+        # Get the user's daily token cost limit
+        daily_limit = await self.get_user_daily_limit(user_type)
+        if isinstance(daily_limit, dict) and "error" in daily_limit:
+            return daily_limit
+        
+        # Get today's token cost
+        todays_cost = await self.get_todays_cost(user_id)
+        
+        # Calculate percentage of daily limit used
+        percentage_used = (todays_cost / daily_limit) * 100
+        
+        return percentage_used
