@@ -595,9 +595,6 @@ async def get_user_token_daily_limit(request_headers):
     finally:
         await cosmos_token_client.cosmosdb_client.close()
 
-
-
-
 async def complete_chat_request(request_body, request_headers):
     if app_settings.base_settings.use_promptflow:
         response = await promptflow_request(request_body)
@@ -740,7 +737,6 @@ def get_frontend_settings():
     except Exception as e:
         logging.exception("Exception in /frontend_settings")
         return jsonify({"error": str(e)}), 500
-
 
 # @bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
 # async def user_settings(user_id):
