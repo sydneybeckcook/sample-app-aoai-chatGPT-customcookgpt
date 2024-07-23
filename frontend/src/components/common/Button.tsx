@@ -95,33 +95,33 @@ export const HelpButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
     )
 }
 
-export const SettingsButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
-  const SettingsButtonStyles: ICommandBarStyles & IButtonStyles = {
-      root: {
-          width: '100px',
-          border: `1px solid #D1D1D1`,
-        },
-        rootHovered: {
-          border: `1px solid #D1D1D1`,
-        },
-        rootPressed: {
-          border: `1px solid #D1D1D1`,
-        },
-    };
+// export const SettingsButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
+//   const SettingsButtonStyles: ICommandBarStyles & IButtonStyles = {
+//       root: {
+//           width: '100px',
+//           border: `1px solid #D1D1D1`,
+//         },
+//         rootHovered: {
+//           border: `1px solid #D1D1D1`,
+//         },
+//         rootPressed: {
+//           border: `1px solid #D1D1D1`,
+//         },
+//     };
 
-    return (
-      <DefaultButton
-          text={text}
-          iconProps={{ 
-            iconName: 'Settings', 
-            styles: {
-              root: {
-                  fontSize: '20px',
-              },
-          },
-          }}
-          onClick={onClick}
-          styles={SettingsButtonStyles}
-      />
-    )
-}
+//     return (
+//       <DefaultButton
+//           text={text}
+//           iconProps={{ 
+//             iconName: 'Settings', 
+//             styles: {
+//               root: {
+//                   fontSize: '20px',
+//               },
+//           },
+//           }}
+//           onClick={onClick}
+//           styles={SettingsButtonStyles}
+//       />
+//     )
+// }

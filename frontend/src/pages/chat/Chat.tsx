@@ -398,7 +398,7 @@ const Chat = () => {
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
-          content: `There was an error generating a response. Chat history can't be saved at this time. ${errorResponseMessage}`,
+          content: `There was an error generating a response: ${errorResponseMessage}`,
           date: new Date().toISOString()
         }
         let resultConversation
@@ -760,11 +760,17 @@ const Chat = () => {
     setIsIntentsPanelOpen(true)
   }
 
-  const onViewSource = (citation: Citation) => {
+  const onViewSource = (citation: Citation, event: React.MouseEvent<HTMLElement, MouseEvent>) => {
+    event.preventDefault();
+  
     if (citation.url && !citation.url.includes('blob.core')) {
-      window.open(citation.url, '_blank')
+      window.open(citation.url, '_blank');
+    } else if (citation.title) {
+      const cleanedTitle = citation.title.replace(/-Rev\d+|\.pdf/g, '');
+      const url = `https://plmdata-cinc.cookgroup.nao/documents/${cleanedTitle}`;
+      window.open(url, "_blank");
     }
-  }
+  };
 
   const parseCitationFromMessage = (message: ChatMessage) => {
     if (message?.role && message?.role === 'tool') {
@@ -841,9 +847,9 @@ const Chat = () => {
           <div className={styles.modelToggleContainer}>
             <span className={styles.modelToggleLabel}>GPT Version</span>
             <div className={styles.modelToggleButton} onClick={handleModelToggle}>
-              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35' ? '5px' : '56px' }}></div>
+              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35-turbo' ? '5px' : '56px' }}></div>
               <span 
-                className={`${styles.labelLeft} ${selectedModel === 'gpt-35' ? styles.toggled : ''}`}
+                className={`${styles.labelLeft} ${selectedModel === 'gpt-35-turbo' ? styles.toggled : ''}`}
                 data-tooltip-html="<b>GPT-3.5:</b> Delivers efficient and accurate results suitable for most applications.<br><br>
                                     <b>When to use:</b> Best for standard queries, where speed and cost efficiency are priorities."
                 data-tooltip-id="modelTooltip"
@@ -1046,7 +1052,8 @@ const Chat = () => {
                     ? activeCitation.url
                     : activeCitation.title ?? ''
                 }
-                onClick={() => onViewSource(activeCitation)}>
+                onClick={(event) => onViewSource(activeCitation, event)}
+              >
                 {activeCitation.title}
               </h5>
               <div tabIndex={0}>

@@ -1,10 +1,11 @@
 import copy
+from datetime import datetime
 import json
 import os
 import logging
 import uuid
 import httpx
-import datetime
+from datetime import datetime
 from dotenv import load_dotenv
 from quart import (
     Blueprint,
@@ -14,7 +15,8 @@ from quart import (
     request,
     send_from_directory,
     render_template,
-    session
+    session,
+    current_app
 )
 
 from openai import AsyncAzureOpenAI
@@ -37,6 +39,11 @@ from backend.utils import (
     format_pf_non_streaming_response,
 )
 from backend.usersettings import UserSettingsManager
+from backend.tokens.token_limits import TokenLimits
+from backend.tokens.token_privileges import TokenPrivileges
+import logging
+from quart import request, session, jsonify
+
 load_dotenv()
 bp = Blueprint("routes", __name__, static_folder="static", template_folder="static")
 
@@ -46,6 +53,7 @@ def create_app():
     app.register_blueprint(bp)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.secret_key = os.environ.get("QUART_SECRET_KEY")
+  
     return app
 
 
@@ -89,6 +97,7 @@ frontend_settings = {
         "chat_title": app_settings.ui.chat_title,
         "chat_description": app_settings.ui.chat_description,
         "show_share_button": app_settings.ui.show_share_button,
+        "show_chat_history_button": app_settings.ui.show_chat_history_button,
     },
     "sanitize_answer": app_settings.base_settings.sanitize_answer,
 }
@@ -96,14 +105,6 @@ frontend_settings = {
 
 # Enable Microsoft Defender for Cloud Integration
 MS_DEFENDER_ENABLED = os.environ.get("MS_DEFENDER_ENABLED", "true").lower() == "true"
-
-
-
-import logging
-from quart import request, session, jsonify
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 def get_model_configuration(selected_model):
     model_configurations = {
@@ -114,6 +115,7 @@ def get_model_configuration(selected_model):
             "key": app_settings.azure_openai.key_v3,
             "model_name": app_settings.azure_openai.model_name_v3
         },
+
         "gpt-4o": {
             "resource": app_settings.azure_openai.resource_v4,
             "model": app_settings.azure_openai.model_v4,
@@ -134,10 +136,10 @@ def set_model_config_in_session(selected_model):
         session["AZURE_OPENAI_MODEL_NAME"] = model_config["model_name"]
         session["AZURE_OPENAI_SELECTED_MODEL"] = selected_model
         session.modified = True
-    
+
         return True
     else:
-        logging.error(f"Invalid model selected: {selected_model}")
+        logging.error(f"set_model_config_in_session - Invalid model selected: {selected_model}")
         return False
 
 @bp.route("/change_model", methods=["POST"])
@@ -148,9 +150,9 @@ async def change_model():
     current_model = session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo")
 
     if set_model_config_in_session(selected_model):
-        return jsonify({"message": "Model changed successfully", "current_model": selected_model}), 200
+        return jsonify({"change_model - message": "Model changed successfully", "current_model": selected_model}), 200
     else:
-        return jsonify({"error": "Invalid model selected", "current_model": current_model}), 400
+        return jsonify({"change_model - error": "Invalid model selected", "current_model": current_model}), 400
 
 # Initialize Azure OpenAI Client
 def init_openai_client():
@@ -211,7 +213,6 @@ def init_openai_client():
         logging.exception("Exception in Azure OpenAI initialization", e)
         azure_openai_client = None
         raise e
-
 
 def prepare_cosmosdb_client_parameters():
     if app_settings.base_settings.is_local:
@@ -297,7 +298,7 @@ def get_user_id():
 @bp.route("/check_privacy_response", methods=["GET"])
 async def check_privacy_response():
     cosmos_privacy_notice_client = init_cosmos_privacy_notice_client()
-    try: 
+    try:
         authenticated_user = get_authenticated_user_details(request_headers=request.headers)
         user_id = authenticated_user['user_principal_id']
         response = await cosmos_privacy_notice_client.check_user_response(user_id)
@@ -309,9 +310,13 @@ async def check_privacy_response():
     finally:
         await cosmos_privacy_notice_client.cosmosdb_client.close()
 
-@bp.route("/privacy_notice")
-def privacy_notice():
-    return send_from_directory('frontend', 'privacy_notice.txt')
+@bp.route("/privacy_notice", methods=["GET"])
+async def privacy_notice():
+    try:
+        return await send_from_directory('frontend', 'privacy_notice.txt')
+    except Exception as e:
+        print(f"An error occurred: {e}")  # Log the error
+        return jsonify({"error": "An internal server error occurred"})
 
 @bp.route("/record_privacy_response", methods=["POST"])
 async def record_privacy_response():
@@ -319,7 +324,7 @@ async def record_privacy_response():
     try:
         authenticated_user = get_authenticated_user_details(request_headers=request.headers)
         user_id = authenticated_user['user_principal_id']
-        date = datetime.datetime.utcnow().isoformat()
+        date = datetime.utcnow().isoformat()
         data = await request.json
         response = data.get("response")
         result = await cosmos_privacy_notice_client.record_user_response(user_id, date, response)
@@ -333,27 +338,52 @@ async def record_privacy_response():
         await cosmos_privacy_notice_client.cosmosdb_client.close()
 
 
-async def check_or_create_user_settings(user_id):
-    cosmos_settings_client = init_cosmos_settings_client()
+async def check_user_token_limits(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
     try:
-        user_settings_manager = UserSettingsManager(cosmos_settings_client)
-        user_settings = await user_settings_manager.get_user_settings(user_id)
+        user_daily_cost_limit = await get_user_token_daily_limit(request_headers)
 
-        if not user_settings:
-            default_system_message = app_settings.azure_openai.system_message
-            default_temperature = app_settings.azure_openai.temperature
+        token_limits = TokenLimits(cosmos_token_client)
+        today = datetime.utcnow().date().isoformat()
+        user_id = get_authenticated_user_details(request_headers)['user_principal_id']
+        current_cost = await token_limits.check_token_costs(user_id, today, today)
 
-            user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
-        return user_settings
-    
-    except Exception as e :
-        logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
-        return {
-            "systemMessage": app_settings.azure_openai.system_message,
-            "temperature": app_settings.azure_openai.temperature
-        }
+        if current_cost >= user_daily_cost_limit:
+            logging.error(f"check_user_token_limits - error: Token limit exceeded")
+            return jsonify({"error": "Token limit exceeded! Try again tomorrow or email CookGPT@cookmedical.com to request an increase in tokens."}), 403
+        return None
     finally:
-        await cosmos_settings_client.cosmosdb_client.close()
+        await cosmos_token_client.cosmosdb_client.close()
+
+
+
+# async def check_or_create_user_settings(user_id):
+#     logging.debug(f"check_or_create_user_settings: Starting for user_id: {user_id}")
+#     cosmos_settings_client = init_cosmos_settings_client()
+#     try:
+#         user_settings_manager = UserSettingsManager(cosmos_settings_client)
+#         logging.debug("check_or_create_user_settings: UserSettingsManager object instantiated")
+#         user_settings = await user_settings_manager.get_user_settings(user_id)
+#         logging.debug(f"check_or_create_user_settings: Retrieved settings: {user_settings}")
+
+#         if not user_settings:
+#             logging.debug("check_or_create_user_settings: No settings found, creating new settings")
+#             default_system_message = app_settings.azure_openai.system_message
+#             default_temperature = app_settings.azure_openai.temperature
+
+#             user_settings = await user_settings_manager.create_user_settings(user_id, default_system_message, default_temperature)
+#             logging.debug(f"check_or_create_user_settings: Created new settings: {user_settings}")
+#         logging.debug(f"user_settings: {user_settings}")
+#         return user_settings
+    
+#     except Exception as e :
+#         logging.error(f"check_or_create_user_settings: CosmosDB error: {str(e)}. Using default user settings")
+#         return {
+#             "systemMessage": app_settings.azure_openai.system_message,
+#             "temperature": app_settings.azure_openai.temperature
+#         }
+#     finally:
+#         await cosmos_settings_client.cosmosdb_client.close()
 
 
 
@@ -363,9 +393,17 @@ async def prepare_model_args(request_body, request_headers):
 
     authenticated_user_details = get_authenticated_user_details(request_headers)
     user_id = authenticated_user_details['user_principal_id']
-    user_settings = await check_or_create_user_settings(user_id)
-    user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
-    user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
+    
+    # user_settings = await check_or_create_user_settings(user_id)
+    # user_temperature = user_settings.get("temperature", app_settings.azure_openai.temperature)
+    # logging.debug(f"user_temperature: {user_temperature}")
+    # user_system_message = user_settings.get("systemMessage", app_settings.azure_openai.system_message)
+    # logging.debug(f"user_system_message: {user_system_message}")
+
+
+
+    user_system_message = app_settings.azure_openai.system_message
+    user_temperature = app_settings.azure_openai.temperature
     
     request_messages = request_body.get("messages", [])
     messages = []
@@ -413,14 +451,8 @@ async def prepare_model_args(request_body, request_headers):
                 )
             ]
         }
-        model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message
-        # embedding_dependency = app_settings.azure_openai.extract_embedding_dependency()
-        # if embedding_dependency:
-        #     model_args["extra_body"]["data_sources"][0]["parameters"]["embedding_dependency"] = embedding_dependency
-        
-
-        
-        
+        model_args["extra_body"]["data_sources"][0]["parameters"]["role_information"] = user_system_message    
+    
 
     model_args_clean = copy.deepcopy(model_args)
     if model_args_clean.get("extra_body"):
@@ -465,7 +497,6 @@ async def promptflow_request(request):
             "Content-Type": "application/json",
             "Authorization": f"Bearer {app_settings.promptflow.api_key}",
         }
-        # Adding timeout for scenarios where response takes longer to come back
         async with httpx.AsyncClient(
             timeout=float(app_settings.promptflow.response_timeout)
         ) as client:
@@ -501,16 +532,70 @@ async def send_chat_request(request_body, request_headers):
     request_body['messages'] = filtered_messages
     model_args = await prepare_model_args(request_body, request_headers)
 
+    cosmos_token_client = init_cosmos_token_client()
+
     try:
+        
+        token_limits = TokenLimits(cosmos_token_client)
+        total_user_prompt_tokens = 0
+        user_prompt_tokens = 0
+        for message in model_args["messages"]: 
+            user_prompt_tokens = token_limits.calculate_tokens(message["content"])
+            total_user_prompt_tokens += user_prompt_tokens
+
+        users_prompt_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': total_user_prompt_tokens,
+                'output': 0
+            },
+            model_used=model_args["model"]
+        )
+    
+        user_id = get_authenticated_user_details(request_headers)["user_principal_id"]
+        todays_token_usage_cost = await token_limits.get_todays_cost(user_id)
+        users_daily_token_cost_limit = await get_user_token_daily_limit(request_headers)
+
+        amount_left = users_daily_token_cost_limit - (todays_token_usage_cost + users_prompt_cost)
+
+        if amount_left < 0:
+            logging.error(f"send_chat_request - User's prompt cost exceeds the daily allotted cost")
+            raise Exception("User's prompt cost exceeds the daily allotted cost")
+
+        for message in model_args["messages"]:
+            entry = await token_limits.update_usage_from_message(
+                request_headers=request_headers,
+                message=message["content"],
+                model_used=model_args["model"],
+                message_type="input"
+            ) 
         azure_openai_client = init_openai_client()
         raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
         response = raw_response.parse()
         apim_request_id = raw_response.headers.get("apim-request-id") 
+
+
     except Exception as e:
         logging.exception("Exception in send_chat_request")
         raise e
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
     return response, apim_request_id
+
+async def get_user_token_daily_limit(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    user_privilege = TokenPrivileges(cosmos_token_client)
+    try:
+        user_privilege_type = await user_privilege.check_user_token_privileges(request_headers)
+        if user_privilege_type == "super":
+            daily_limit_cost = app_settings.base_settings.daily_token_cost_limit_super
+        else: 
+            daily_limit_cost = app_settings.base_settings.daily_token_cost_limit_regular
+        return daily_limit_cost
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
+
+
 
 
 async def complete_chat_request(request_body, request_headers):
@@ -526,32 +611,107 @@ async def complete_chat_request(request_body, request_headers):
     else:
         response, apim_request_id = await send_chat_request(request_body, request_headers)
         history_metadata = request_body.get("history_metadata", {})
-        return format_non_streaming_response(response, history_metadata, apim_request_id)
+        formatted_response = format_non_streaming_response(response, history_metadata, apim_request_id)
+        usage = response.usage if hasattr(response, 'usage') else {}
+        prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+        completion_tokens = getattr(usage, 'completion_tokens', 0)
+        total_tokens = getattr(usage, 'total_tokens', 0)
+
+        # response is object type ChatCompletion
+        choice = response.choices[0] #Object type Choice 
+        message = choice.message #Object type ChatCompletionMessage
+        message_content = message.content
+
+        cosmos_token_client = init_cosmos_token_client()
+        token_limits = TokenLimits(cosmos_token_client)
+        selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3)
+        if message_content:
+            entry = await token_limits.update_usage_from_message(
+                request_headers=request_headers,
+                message = message_content,
+                model_used=selected_model,
+                message_type="output"
+            )
+            completion_tokens = token_limits.calculate_tokens(message_content) 
+            completion_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': 0,
+                'output': completion_tokens
+            },
+            model_used=selected_model
+        )
+
+        await cosmos_token_client.cosmosdb_client.close()
+        
+
+        # # Add token usage data to the response
+        # formatted_response['usage'] = {
+        #     "prompt_tokens": prompt_tokens,
+        #     "completion_tokens": completion_tokens,
+        #     "total_tokens": total_tokens
+        # }
+        # logging.info(f"complete_chat_request - Returning formatted_response with usage: {formatted_response}")
+        
+        return formatted_response
 
 
 async def stream_chat_request(request_body, request_headers):
     response, apim_request_id = await send_chat_request(request_body, request_headers)
     history_metadata = request_body.get("history_metadata", {})
-    
+    cosmos_token_client = init_cosmos_token_client()
+    token_limits = TokenLimits(cosmos_token_client)
+    selected_model = session.get("AZURE_OPENAI_SELECTED_MODEL", app_settings.azure_openai.model_v3)
+    completion_tokens = 0
+    total_completion_tokens = 0
     async def generate():
+        nonlocal total_completion_tokens
         async for completionChunk in response:
-            yield format_stream_response(completionChunk, history_metadata, apim_request_id)
-
-    return generate()
+            response_obj = format_stream_response(completionChunk, history_metadata, apim_request_id)
+            if response_obj and ("choices" in response_obj) and (len(response_obj["choices"])>0):
+                messages = response_obj["choices"][0]["messages"]
+                message = messages[0]
+                content = message["content"]
+                role = message["role"]
+                if content and role == "assistant" and not content.startswith('{"citations": ['):
+                    entry = await token_limits.update_usage_from_message(
+                        request_headers=request_headers,
+                        message=content,
+                        model_used=selected_model,
+                        message_type="output"
+                    )
+                    completion_tokens = token_limits.calculate_tokens(content)
+                    total_completion_tokens += completion_tokens
+            yield response_obj
+        completion_cost = token_limits.calculate_token_cost(
+            tokens = {
+                'input': 0,
+                'output': total_completion_tokens
+            },
+            model_used=selected_model
+        )
+    try:
+        return generate()
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
 
 async def conversation_internal(request_body, request_headers):
     try:
+        token_limits_error_msg = await check_user_token_limits(request_headers)
+        if token_limits_error_msg: 
+            return token_limits_error_msg
+
         if app_settings.azure_openai.stream and not app_settings.base_settings.use_promptflow:
+
             result = await stream_chat_request(request_body, request_headers)
-            print(result)
             response = await make_response(format_as_ndjson(result))
             response.timeout = None
             response.mimetype = "application/json-lines"
             return response
         else:
             result = await complete_chat_request(request_body, request_headers)
-            return jsonify(result)
+            response = jsonify(result)
+            return response
 
     except Exception as ex:
         logging.exception(ex)
@@ -582,28 +742,33 @@ def get_frontend_settings():
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
-async def user_settings(user_id):
-    cosmos_settings_client = init_cosmos_settings_client()
-    try:
-        user_settings_manager = UserSettingsManager(cosmos_settings_client)
-        if request.method == 'GET':
-            settings = await user_settings_manager.get_user_settings(user_id)
-            if settings is None: 
-                await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
-            return jsonify(settings)
+# @bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
+# async def user_settings(user_id):
+#     cosmos_settings_client = init_cosmos_settings_client()
+#     try:
+#         user_settings_manager = UserSettingsManager(cosmos_settings_client)
+#         if request.method == 'GET':
+#             settings = await user_settings_manager.get_user_settings(user_id)
+#             if settings is None: 
+#                 logging.info(f"Creating default settings for user_id: {user_id}")
+#                 await user_settings_manager.create_user_settings(user_id, app_settings.azure_openai.system_message, app_settings.azure_openai.temperature)
+#             logging.info(f"Fetched settings for user_id: {user_id} - {settings}")
+#             return jsonify(settings)
 
-        elif request.method == 'POST':
-            new_settings = await request.json
-            system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
-            temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
-            updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
-            return jsonify(updated_settings)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+#         elif request.method == 'POST':
+#             new_settings = await request.json
+#             logging.info(f"Received new settings for user_id: {user_id} - {new_settings}")
+#             system_message = new_settings.get('systemMessage', app_settings.azure_openai.system_message)
+#             temperature = new_settings.get('temperature', app_settings.azure_openai.temperature)
+#             logging.info(f"Updating settings for user_id: {user_id} - system_message: {system_message}, temperature: {temperature}")
+#             updated_settings = await user_settings_manager.update_user_settings(user_id, system_message, temperature)
+#             logging.info(f"Updated settings for user_id: {user_id} - {updated_settings}")
+#             return jsonify(updated_settings)
+#     except Exception as e:
+#         return jsonify({'error': str(e)}), 500
 
-    finally:
-        await cosmos_settings_client.cosmosdb_client.close()
+#     finally:
+#         await cosmos_settings_client.cosmosdb_client.close()
     
 
 
@@ -624,7 +789,6 @@ async def add_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client = init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -683,7 +847,6 @@ async def update_conversation():
     try:
         # make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
 
@@ -727,7 +890,6 @@ async def update_conversation():
 async def update_message():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
 
     ## check request for message_id
@@ -786,7 +948,6 @@ async def delete_conversation():
 
         ## make sure cosmos is configured
         cosmos_conversation_client= init_cosmos_conversation_client()
-        cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
         
@@ -832,7 +993,6 @@ async def list_conversations():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
-    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -862,7 +1022,6 @@ async def get_conversation():
         return jsonify({"error": "conversation_id is required"}), 400
 
     ## make sure cosmos is configured
-    cosmos_conversation_client= init_cosmos_conversation_client()
     cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
@@ -917,7 +1076,6 @@ async def rename_conversation():
 
     ## make sure cosmos is configured
     cosmos_conversation_client= init_cosmos_conversation_client()
-    cosmos_conversation_client= init_cosmos_conversation_client()
     if not cosmos_conversation_client:
         raise Exception("CosmosDB is not configured or not working")
 
@@ -957,7 +1115,6 @@ async def delete_all_conversations():
     # get conversations for user
     try:
         ## make sure cosmos is configured
-        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")
@@ -1016,7 +1173,6 @@ async def clear_messages():
             return jsonify({"error": "conversation_id is required"}), 400
 
         ## make sure cosmos is configured
-        cosmos_conversation_client= init_cosmos_conversation_client()
         cosmos_conversation_client= init_cosmos_conversation_client()
         if not cosmos_conversation_client:
             raise Exception("CosmosDB is not configured or not working")

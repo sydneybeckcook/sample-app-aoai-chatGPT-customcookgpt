@@ -52,6 +52,7 @@ class _UiSettings(BaseSettings):
     )
     favicon: str = "/favicon.ico"
     show_share_button: bool = True
+    show_chat_history_button: bool = True
 
 
 class _ChatHistorySettings(BaseSettings):
@@ -144,19 +145,19 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
 
-    model_v3: str
-    model_name_v3: str
-    key_v3: Optional[str] = None
-    resource_v3: Optional[str] = None
-    endpoint_v3: Optional[str] = None
 
     model_v4: str
     model_name_v4: str
     key_v4: Optional[str] = None
     resource_v4: Optional[str] = None
     endpoint_v4: Optional[str] = None
-    
 
+    model_v3: str
+    model_name_v3: str
+    key_v3: Optional[str] = None
+    resource_v3: Optional[str] = None
+    endpoint_v3: Optional[str] = None
+    
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:
@@ -191,6 +192,17 @@ class _AzureOpenAISettings(BaseSettings):
         
         return None
     
+    # @model_validator(mode="after")
+    # def ensure_endpoint(self) -> Self:
+    #     if self.endpoint:
+    #         return Self
+        
+    #     elif self.resource:
+    #         self.endpoint = f"https://{self.resource}.openai.azure.com"
+    #         return Self
+        
+    #     raise ValidationError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_RESOURCE is required")
+
     @model_validator(mode="after")
     def ensure_endpoint(self) -> Self:
         if self.endpoint_v3:
@@ -242,7 +254,7 @@ class _SearchCommonSettings(BaseSettings):
     include_contexts: Optional[List[str]] = ["citations", "intent"]
     vectorization_dimensions: Optional[int] = None
     role_information: str = Field(
-        default="You are an AI assistant that helps Cook Medical employees find information.",
+        default="",
         validation_alias="AZURE_OPENAI_SYSTEM_MESSAGE"
     )
 
@@ -705,6 +717,8 @@ class _BaseSettings(BaseSettings):
     use_promptflow: bool = False
     is_development: bool = False
     is_local: bool = False
+    daily_token_cost_limit_super: float = 1.0
+    daily_token_cost_limit_regular: float = 0.25
     webapp_name: Optional[str] = None
 
 
