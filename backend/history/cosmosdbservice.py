@@ -273,7 +273,13 @@ class CosmosConversationClient():
             logging.error(f"Error querying shared conversations: {e}")
             return None
 
+        if conversations:
+            logging.info(f"Returning conversation with ID: {shared_conversation_id}")
+        else:
+            logging.info(f"No conversations found for ID: {shared_conversation_id}")
+            
         return conversations[0] if conversations else None
+
     
 class CosmosTokenClient():
 

@@ -75,10 +75,17 @@ async def favicon():
 async def assets(path):
     return await send_from_directory("static/assets", path)
 
-# Debug settings
-DEBUG = os.environ.get("DEBUG", "false")
-if DEBUG.lower() == "true":
-    logging.basicConfig(level=logging.DEBUG)
+# Set global logging level to WARNING or higher to reduce output
+logging.basicConfig(level=logging.WARNING)
+
+# Specifically set the Azure SDK logging level to WARNING or higher
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
+
+# Additional application-specific logging configuration, if needed
+if os.environ.get("DEBUG", "false").lower() == "true":
+    logging.getLogger().setLevel(logging.DEBUG)
+else:
+    logging.getLogger().setLevel(logging.WARNING)
 
 USER_AGENT = "GitHubSampleWebApp/AsyncAzureOpenAI/1.0.0"
 
@@ -1275,7 +1282,7 @@ async def share_conversation(conversation_id):
         shared_conversation_id = await cosmos_conversation_client.share_conversation(user_id, conversation_id)
         
         if shared_conversation_id:
-            is_local = os.getenv('IS_DEVELOPMENT', 'False') == 'True'
+            is_local = os.getenv('IS_LOCAL', 'False') == 'True'
             base_url = "http://127.0.0.1:50505" if is_local else f"https://{os.getenv('AZURE_WEBAPP_NAME')}.cookmedical.com"
             shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
             logging.info(f"Generated shareable link: {shareable_link}")
@@ -1290,18 +1297,22 @@ async def share_conversation(conversation_id):
 
 @bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
 async def get_shared_conversation(shared_conversation_id):
+    logging.info(f"Received request for shared conversation with ID: {shared_conversation_id}")
     try:
         cosmos_conversation_client = init_cosmos_conversation_client()
         conversation = await cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
         if not conversation:
+            logging.error(f"Shared conversation with ID: {shared_conversation_id} not found")
             return jsonify({"error": "Shared conversation not found"}), 404
 
+        logging.info(f"Successfully retrieved shared conversation with ID: {shared_conversation_id}")
         return jsonify(conversation)
     except Exception as e:
-        logging.exception("Exception in /api/get_shared_conversation/<shared_conversation_id>")
+        logging.exception(f"Exception in /api/get_shared_conversation/{shared_conversation_id}")
         return jsonify({"error": "An internal server error occurred"}), 500
     finally:
         await cosmos_conversation_client.cosmosdb_client.close()
+
 
 
 app = create_app()
