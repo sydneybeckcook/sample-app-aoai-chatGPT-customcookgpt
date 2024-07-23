@@ -9,11 +9,12 @@ from backend.history.cosmosdbservice import CosmosTokenClient
 from backend.settings import (
     app_settings
 )
-from backend.tokens import token_privileges
+from backend.tokens.token_privileges import TokenPrivileges
 
 class TokenLimits:
     def __init__(self, cosmos_token_client: CosmosTokenClient):
         self.cosmos_token_client = cosmos_token_client
+        self.token_privileges = TokenPrivileges(cosmos_token_client)
         self.encoding = tiktoken.get_encoding("cl100k_base")
 
     def calculate_tokens(self, message: str) -> int:
@@ -129,37 +130,48 @@ class TokenLimits:
         return tokens['input'] * input_cost + tokens['output'] * output_cost
     
     async def get_user_daily_limit(self, user_type):
+        logging.info(f"Getting daily limit for user type: {user_type}")
         if user_type == 'regular':
             daily_limit = app_settings.base_settings.daily_token_cost_limit_regular
         elif user_type == 'super':
             daily_limit = app_settings.base_settings.daily_token_cost_limit_super
         else:
+            logging.error("Unknown user privilege type")
             return {"error": "Unknown user privilege type"}
         
+        logging.info(f"Daily limit for user type {user_type}: {daily_limit}")
         return daily_limit
 
     async def calculate_daily_usage_percentage(self, request_headers):
+        logging.info("Calculating daily usage percentage")
+        
         # Check user privileges
-        user_type = await token_privileges.check_user_token_privileges(request_headers)
+        user_type = await self.token_privileges.check_user_token_privileges(request_headers)
         if isinstance(user_type, dict) and "error" in user_type:
+            logging.error(f"Error in user privileges: {user_type['error']}")
             return user_type
         
         # Get user details
         user_details = get_authenticated_user_details(request_headers)
         if not user_details:
+            logging.error("User not authenticated")
             return {"error": "User not authenticated"}
         
         user_id = user_details['user_principal_id']
+        logging.info(f"User ID: {user_id}")
 
         # Get the user's daily token cost limit
         daily_limit = await self.get_user_daily_limit(user_type)
         if isinstance(daily_limit, dict) and "error" in daily_limit:
+            logging.error(f"Error in daily limit: {daily_limit['error']}")
             return daily_limit
         
         # Get today's token cost
         todays_cost = await self.get_todays_cost(user_id)
+        logging.info(f"Today's token cost for user {user_id}: {todays_cost}")
         
         # Calculate percentage of daily limit used
         percentage_used = (todays_cost / daily_limit) * 100
+        logging.info(f"Percentage of daily limit used: {percentage_used}")
         
         return percentage_used

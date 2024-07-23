@@ -5,6 +5,7 @@ from azure.cosmos import exceptions, PartitionKey
   
 import os
 import uuid
+import logging
 from datetime import datetime
 from flask import Flask, request
 from azure.identity import DefaultAzureCredential  
@@ -314,6 +315,7 @@ class CosmosTokenClient():
             return False
 
     async def get_token_usage(self, user_id, date):
+        logging.info(f"Getting token usage for user {user_id} on date {date}")
         query = "SELECT * FROM c WHERE c.userId = @userId AND c.date = @date"
         parameters = [
             {"name": "@userId", "value": user_id},
@@ -323,6 +325,10 @@ class CosmosTokenClient():
         items = []
         async for item in self.token_container_client.query_items(query=query, parameters=parameters):
             items.append(item)
+        if items:
+            logging.info(f"Token usage found for user {user_id} on date {date}")
+        else:
+            logging.info(f"No token usage found for user {user_id} on date {date}")
         return items[0] if items else None
     
     async def get_user_privilege_type(self, user_id):

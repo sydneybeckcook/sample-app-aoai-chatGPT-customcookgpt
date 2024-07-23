@@ -595,6 +595,20 @@ async def get_user_token_daily_limit(request_headers):
     finally:
         await cosmos_token_client.cosmosdb_client.close()
 
+async def get_token_usage_percentage(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    try:
+        token_limits = TokenLimits(cosmos_token_client)
+        percentage_used = await token_limits.calculate_daily_usage_percentage(request_headers)
+        
+        if isinstance(percentage_used, dict) and "error" in percentage_used:
+            logging.error(f"get_token_usage_percentage - error: {percentage_used['error']}")
+            return jsonify(percentage_used), 400
+        
+        return jsonify({"percentage_used": percentage_used}), 200
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
+
 async def complete_chat_request(request_body, request_headers):
     if app_settings.base_settings.use_promptflow:
         response = await promptflow_request(request_body)
@@ -1237,6 +1251,15 @@ async def ensure_cosmos():
         else:
             return jsonify({"error": "CosmosDB is not working"}), 500
 
+@bp.route("/get_token_usage_percentage", methods=["GET"])
+async def token_usage_percentage():
+    try:
+        return await get_token_usage_percentage(request.headers)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
@@ -1259,36 +1282,6 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
-# uncomment after merging with the latest version
-# @bp.route("/api/share/<conversation_id>", methods=["GET"])
-# def share_conversation(conversation_id):
-#     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-#     user_id = authenticated_user['user_principal_id']
-
-#     shared_conversation_id = cosmos_conversation_client.share_conversation(user_id, conversation_id)
-    
-#     if shared_conversation_id:
-#         base_url = "http://127.0.0.1:5000" if is_development else f"https://{AZURE_WEBAPP_NAME}.cookmedical.com"
-#         shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
-#         return jsonify({"shareableLink": shareable_link})
-#     else:
-#         return jsonify({"error": "Unable to share conversation"}), 500
-    
-# @bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
-# def get_shared_conversation(shared_conversation_id):
-#     try:
-#         conversation = cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
-#         if not conversation:
-#             return jsonify({"error": "Shared conversation not found"}), 404
-
-#         # Return the conversation data as JSON
-#         return jsonify(conversation)
-#     except Exception as e:
-#         # Log the exception for debugging
-#         print(f"An error occurred while fetching the shared conversation: {e}")
-#         # Return an error response
-#         return jsonify({"error": "An internal server error occurred"}), 500
-
 
 app = create_app()
 

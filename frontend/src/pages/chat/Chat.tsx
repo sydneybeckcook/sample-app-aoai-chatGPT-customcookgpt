@@ -64,9 +64,7 @@ const Chat = () => {
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
   const [selectedModel, setSelectedModel] = useState('gpt-35-turbo')
-
-
-
+  const [tokenUsagePercentage, setTokenUsagePercentage] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -165,6 +163,38 @@ const Chat = () => {
     setIsLoading(appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Loading)
   }, [appStateContext?.state.chatHistoryLoadingState])
 
+  const fetchTokenUsagePercentage = async (): Promise<number | null> => {
+    try {
+      const response = await fetch('/get_token_usage_percentage', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (response.ok) {
+        const data = await response.json();
+        return data.percentage_used;
+      } else {
+        console.error('Failed to fetch token usage percentage.');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching token usage percentage:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const fetchPercentage = async () => {
+      const percentage = await fetchTokenUsagePercentage();
+      setTokenUsagePercentage(percentage);
+      console.log(tokenUsagePercentage)
+    };
+  
+    fetchPercentage();
+  }, []);
+  
   const getUserInfoList = async () => {
     if (!AUTH_ENABLED) {
       setShowAuthMessage(false)
