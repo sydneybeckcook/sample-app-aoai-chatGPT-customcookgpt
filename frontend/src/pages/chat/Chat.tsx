@@ -190,7 +190,7 @@ const Chat = () => {
     const fetchPercentage = async () => {
       const percentage = await fetchTokenUsagePercentage();
       setTokenUsagePercentage(percentage);
-      console.log(percentage)
+      console.log(percentage); 
     };
   
     fetchPercentage();
