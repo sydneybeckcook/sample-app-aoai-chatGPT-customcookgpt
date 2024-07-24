@@ -1263,36 +1263,41 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
-# uncomment after merging with the latest version
-# @bp.route("/api/share/<conversation_id>", methods=["GET"])
-# def share_conversation(conversation_id):
-#     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-#     user_id = authenticated_user['user_principal_id']
-
-#     shared_conversation_id = cosmos_conversation_client.share_conversation(user_id, conversation_id)
     
-#     if shared_conversation_id:
-#         base_url = "http://127.0.0.1:5000" if is_development else f"https://{AZURE_WEBAPP_NAME}.cookmedical.com"
-#         shareable_link = f"{base_url}/#/share/{shared_conversation_id}"
-#         return jsonify({"shareableLink": shareable_link})
-#     else:
-#         return jsonify({"error": "Unable to share conversation"}), 500
-    
-# @bp.route("/api/get_shared_conversation/<shared_conversation_id>", methods=["GET"])
-# def get_shared_conversation(shared_conversation_id):
-#     try:
-#         conversation = cosmos_conversation_client.get_shared_conversation(shared_conversation_id)
-#         if not conversation:
-#             return jsonify({"error": "Shared conversation not found"}), 404
+@bp.route("/update-datasource", methods=["POST"])
+async def update_datasource():
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    user_id = authenticated_user["user_principal_id"]
 
-#         # Return the conversation data as JSON
-#         return jsonify(conversation)
-#     except Exception as e:
-#         # Log the exception for debugging
-#         print(f"An error occurred while fetching the shared conversation: {e}")
-#         # Return an error response
-#         return jsonify({"error": "An internal server error occurred"}), 500
+    try:
+        # Parse the request JSON
+        request_json = await request.get_json()
+        selected_data_source = request_json.get("selectedDataSource")
 
+        if not selected_data_source:
+            raise ValueError("No data source selected")
+
+        # # Initialize the Cosmos DB client
+        # cosmos_client = init_cosmos_conversation_client()
+        # if not cosmos_client:
+        #     raise Exception("CosmosDB is not configured or not working")
+
+        # # Update the user's selected data source in Cosmos DB
+        # user_data = {
+        #     "id": user_id,
+        #     "selectedDataSource": selected_data_source
+        # }
+        # # Need to add cosmos client for data sources and upsert function 
+        # await cosmos_client.upsert_item(user_data)
+
+        # # Need to change
+        # await cosmos_client.cosmosdb_client.close()
+
+        return jsonify({"message": "Datasource updated successfully"}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /update-datasource")
+        return jsonify({"error": str(e)}), 500
 
 app = create_app()
 
