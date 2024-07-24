@@ -283,6 +283,10 @@ class DatasourcePayloadConstructor(BaseModel, ABC):
     ):
         pass
 
+    @abstractmethod
+    def get_fields(self):
+        pass
+
 
 class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     model_config = SettingsConfigDict(
@@ -394,6 +398,10 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
             "type": self._type,
             "parameters": parameters
         }
+    
+
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
 
 
 class _AzureCosmosDbMongoVcoreSettings(
@@ -466,6 +474,9 @@ class _AzureCosmosDbMongoVcoreSettings(
             "type": self._type,
             "parameters": parameters
         }
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
+    
 
 
 class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
@@ -539,6 +550,8 @@ class _ElasticsearchSettings(BaseSettings, DatasourcePayloadConstructor):
             "type": self._type,
             "parameters": parameters
         }
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
 
 
 class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
@@ -609,6 +622,8 @@ class _PineconeSettings(BaseSettings, DatasourcePayloadConstructor):
             "type": self._type,
             "parameters": parameters
         }
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
 
 
 class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
@@ -665,6 +680,8 @@ class _AzureMLIndexSettings(BaseSettings, DatasourcePayloadConstructor):
             "type": self._type,
             "parameters": parameters
         }
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
 
 
 class _AzureSqlServerSettings(BaseSettings, DatasourcePayloadConstructor):
@@ -703,6 +720,8 @@ class _AzureSqlServerSettings(BaseSettings, DatasourcePayloadConstructor):
             "type": self._type,
             "parameters": parameters
         }
+    def get_fields(self):
+        return self.model_dump(exclude_none=True)
     
     
 class _BaseSettings(BaseSettings):
@@ -789,6 +808,39 @@ class _AppSettings(BaseModel):
 
         except ValidationError:
             logging.warning("No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data.")
+
+
+    def change_index(self, index: str) -> None:
+        if self.datasource:
+            if isinstance(self.datasource, _PineconeSettings):
+                self.datasource.index_name = index
+                logging.info(f"Index for Pinecone set to {index}")
+            elif isinstance(self.datasource, _AzureSearchSettings):
+                self.datasource.index = index
+                logging.info(f"Index for Azure Cognitive Search set to {index}")
+            elif isinstance(self.datasource, _AzureCosmosDbMongoVcoreSettings):
+                self.datasource.index = index
+                logging.info(f"Index for Azure CosmosDB set to {index}")
+            elif isinstance(self.datasource, _ElasticsearchSettings):
+                self.datasource.index = index
+                logging.info(f"Index for Elasticsearch set to {index}")
+            # elif isinstance(self.datasource, _AzureMLIndexSettings):
+            #     self.datasource.index = index
+                logging.info(f"Index for Azure ML Index set to {index}")
+            # elif isinstance(self.datasource, _AzureSqlServerSettings):
+            #   
+            #     self.datasource.index = index
+                # logging.info(f"Index for Azure SQL Server set to {index}")
+            else:
+                logging.warning(f"Datasource type is not supported for index change.")
+        else:
+            logging.warning("No datasource is configured. Cannot change index.")
+
+    def get_datasource_fields(self):
+        if self.datasource:
+            return self.datasource.get_fields()
+        else:
+            logging.warning("No datasource is configured. Cannot get fields")
 
 
 app_settings = _AppSettings()
