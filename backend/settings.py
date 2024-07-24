@@ -790,4 +790,8 @@ class _AppSettings(BaseModel):
             logging.warning("No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data.")
 
 
+    def change_index(self, index: str) -> None:
+        self.datasource.index = index
+
+        
 app_settings = _AppSettings()
