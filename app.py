@@ -279,7 +279,8 @@ def init_cosmos_settings_client():
             cosmosdb_endpoint=cosmosdb_endpoint,
             credential=credentials,
             database_name=f"{app_settings.chat_history.database_settings}",
-            settings_container_name=f"{app_settings.chat_history.container_settings}"
+            settings_container_name=f"{app_settings.chat_history.container_settings}",
+            datasource_settings_container_name=f"{app_settings.chat_history.container_datasource_settings}"
         )
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)

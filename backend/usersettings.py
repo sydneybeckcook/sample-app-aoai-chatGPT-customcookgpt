@@ -19,3 +19,18 @@ class UserSettingsManager:
     async def update_user_settings(self, user_id, system_message, temperature):
         resp = await self.cosmos_settings_client.update_settings(user_id, system_message, temperature)
         return resp
+    
+    async def get_user_datasource(self, user_id):
+        datasource = await self.cosmos_settings_client.get_datasource(user_id)
+        return datasource
+
+    async def create_user_datasource(self, user_id):
+        try:
+            resp = await self.cosmos_settings_client.create_datasource(user_id)
+            return resp
+        except ValueError as e:
+            return {"error": str(e)}
+
+    async def update_user_datasource(self, user_id, selected_datasource):
+        resp = await self.cosmos_settings_client.update_datasource(user_id, selected_datasource)
+        return resp

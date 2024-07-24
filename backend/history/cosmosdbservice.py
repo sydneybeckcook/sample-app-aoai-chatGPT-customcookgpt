@@ -400,7 +400,7 @@ class CosmosPrivacyNoticeClient:
 
 class CosmosSettingsClient:
 
-    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, settings_container_name: str):
+    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, settings_container_name: str, datasource_container_name: str):
         self.cosmosdb_endpoint = cosmosdb_endpoint
         self.credential = credential
         self.database_name = database_name
@@ -408,6 +408,7 @@ class CosmosSettingsClient:
         self.cosmosdb_client = CosmosClient(self.cosmosdb_endpoint, credential=credential)
         self.database_client = self.cosmosdb_client.get_database_client(database_name)
         self.settings_container_client = self.database_client.get_container_client(settings_container_name)
+        self.datasource_container_client = self.database_client.get_container_client(datasource_container_name)
 
     async def get_settings(self, user_id):
         query = f"SELECT * FROM c WHERE c.userId = @userId AND c.type = 'userSettings'"
@@ -439,4 +440,41 @@ class CosmosSettingsClient:
         }
         resp = await self.settings_container_client.upsert_item(new_settings_document)
         return resp
+    
+    async def get_datasource(self, user_id):
+        query = f"SELECT * FROM c WHERE c.userId = @userId AND c.type = 'datasource'"
+        parameters = [{"name": "@userId", "value": user_id}]
+        datasources = []
+        async for datasource in self.datasource_container_client.query_items(query=query, parameters=parameters):
+            datasources.append(datasource)
+        return datasources[0] if datasources else None
 
+    async def update_datasource(self, user_id, selected_datasource):
+        datasource_document = await self.get_datasource(user_id)
+        if datasource_document:
+            datasource_document['selectedDatasource'] = selected_datasource
+        else:
+            datasource_document = {
+                "id": "datasource-" + str(user_id),
+                "type": "datasource",
+                "userId": user_id,
+                "selectedDatasource": selected_datasource
+            }
+        resp = await self.datasource_container_client.upsert_item(datasource_document)
+        return resp
+    
+    async def create_datasource(self, user_id):
+        existing_datasource = await self.get_datasource(user_id)
+        if existing_datasource is not None:
+            raise ValueError("Datasource already exists for this user")
+
+        new_datasource_document = {
+            "id": "datasource-" + str(user_id),
+            "type": "datasource",
+            "userId": user_id,
+            "selectedDatasource": "none"
+        }
+        resp = await self.datasource_container_client.upsert_item(new_datasource_document)
+        return resp
+
+    
