@@ -83,6 +83,42 @@ export const HelpButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
     )
 }
 
+interface DataButtonProps extends IButtonProps {
+  onClick: () => void;
+  text: string;
+}
+
+export const DataButton: React.FC<DataButtonProps> = ({onClick, text}) => {
+  const HelpButtonStyles: ICommandBarStyles & IButtonStyles = {
+      root: {
+          width: '170px',
+          border: `1px solid #D1D1D1`,
+        },
+        rootHovered: {
+          border: `1px solid #D1D1D1`,
+        },
+        rootPressed: {
+          border: `1px solid #D1D1D1`,
+        },
+    };
+
+    return (
+      <DefaultButton
+          text={text}
+          iconProps={{ 
+            iconName: 'ExploreData', 
+            styles: {
+              root: {
+                  fontSize: '20px',
+              },
+          },
+          }}
+          onClick={onClick}
+          styles={HelpButtonStyles}
+      />
+    )
+}
+
 // export const SettingsButton: React.FC<HelpButtonProps> = ({onClick, text}) => {
 //   const SettingsButtonStyles: ICommandBarStyles & IButtonStyles = {
 //       root: {

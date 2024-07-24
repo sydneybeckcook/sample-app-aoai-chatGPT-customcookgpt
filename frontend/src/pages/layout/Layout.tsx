@@ -1,13 +1,13 @@
 import { useContext, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
-import { Dialog, Stack, TextField, DefaultButton, Slider } from '@fluentui/react'
+import { Dialog, Stack, TextField, DefaultButton, Slider, ChoiceGroup, IChoiceGroupOption } from '@fluentui/react'
 import { CopyRegular } from '@fluentui/react-icons'
 
 // import {getOrCreateUserSettings, updateUserSettings } from '../../api'
 import { CosmosDBStatus } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
 // import { SettingsButton } from '../../components/common/Button'
-import { HistoryButton, ShareButton, HelpButton } from '../../components/common/Button'
+import { HistoryButton, ShareButton, HelpButton, DataButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
 import PrivacyNotice from '../../constants/privacyNotice'
@@ -21,7 +21,8 @@ const Layout = () => {
   const [copyText, setCopyText] = useState<string>('Copy URL')
   const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState<boolean>(false)
-
+  const [isDataPanelOpen, setIsDataPanelOpen] = useState<boolean>(false)
+  const [selectedKey, setSelectedKey] = useState('');
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Hide chat history')
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Show chat history')
   const [logo, setLogo] = useState('')
@@ -34,6 +35,15 @@ const Layout = () => {
   // const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
   // const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
   // const [temperature, setTemperature] = useState(defaultTemperature);
+
+  const options: IChoiceGroupOption[] = [
+    { key: 'None', text: 'None' },
+    { key: 'cinc_qms', text: 'CINC QMS' },
+    { key: 'cmh_qms', text: 'CMH QMS' },
+    { key: 'marketing', text: 'Marketing' },
+    { key: 'hr', text: 'HR' },
+    { key: 'rd', text: 'R&D' },
+  ];
 
   const handleShareClick = (link: string) => {
     setShareableLink(link)
@@ -100,6 +110,39 @@ const Layout = () => {
     setIsHelpPanelOpen(false)
   }
 
+  const handleDataClick = () => {
+    setIsDataPanelOpen(true);
+  };
+
+  const handleDataPanelDismiss = async () => {
+    setIsDataPanelOpen(false);
+    if (selectedKey) {
+      try {
+        const response = await fetch('/update-datasource', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ selectedDataSource: selectedKey }),
+        });
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        console.log('Datasource updated successfully:', data);
+      } catch (error) {
+        console.error('Failed to update datasource:', error);
+      }
+    }
+  };
+
+  const onChangeDataSource = (event?: React.FormEvent<HTMLElement | HTMLInputElement>, option?: IChoiceGroupOption) => {
+    if (option) {
+      setSelectedKey(option.key);
+      console.log('Selected datasource:', option.key);
+    }
+  };
+
   useEffect(() => {
     if (copyClicked) {
       setCopyText('Copied URL')
@@ -143,6 +186,7 @@ const Layout = () => {
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
               />
             )}
+            {!appStateContext?.state.hideRightWrapperButtons && <DataButton onClick={handleDataClick} text="Data Settings" />}
             {!appStateContext?.state.hideRightWrapperButtons && <HelpButton onClick={handleHelpClick} text="Help" />}
             {/* {!appStateContext?.state.hideRightWrapperButtons && (
               <SettingsButton onClick={handleSettingsClick} text="Settings" />
@@ -221,6 +265,38 @@ const Layout = () => {
             Please use the "Share" button to include any conversations in your email.
           </p>
           <br></br>
+        </div>
+      </Dialog>
+      <Dialog
+        onDismiss={handleDataPanelDismiss}
+        hidden={!isDataPanelOpen}
+        dialogContentProps={{
+          title: 'Datasource Settings'
+        }}
+        styles={{
+          main: [
+            {
+              selectors: {
+                ['@media (min-width: 480px)']: {
+                  maxWidth: '800px',
+                  background: '#FFFFFF',
+                  boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
+                  borderRadius: '8px',
+                  maxHeight: '800px'
+                }
+              }
+            }
+          ]
+        }}
+      >
+        <div>
+          <ChoiceGroup
+            label="Select a datasource"
+            options={options}
+            selectedKey={selectedKey}
+            onChange={onChangeDataSource}
+            required
+          />
         </div>
       </Dialog>
       {/* <Dialog
