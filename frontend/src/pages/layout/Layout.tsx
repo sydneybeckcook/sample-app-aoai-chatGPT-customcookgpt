@@ -37,7 +37,7 @@ const Layout = () => {
   // const [temperature, setTemperature] = useState(defaultTemperature);
 
   const options: IChoiceGroupOption[] = [
-    { key: 'None', text: 'None' },
+    { key: 'none', text: 'None' },
     { key: 'cinc_qms', text: 'CINC QMS' },
     { key: 'cmh_qms', text: 'CMH QMS' },
     { key: 'marketing', text: 'Marketing' },
