@@ -6,9 +6,16 @@ interface DatasourceSelectProps {
   onDismiss: () => void;
   selectedKey: string | undefined;
   setSelectedKey: React.Dispatch<React.SetStateAction<string | undefined>>;
+  validationMessage?: string;
 }
 
-const DatasourceSelect: React.FC<DatasourceSelectProps> = ({ isOpen, onDismiss, selectedKey, setSelectedKey }) => {
+const DatasourceSelect: React.FC<DatasourceSelectProps> = ({ 
+    isOpen, 
+    onDismiss, 
+    selectedKey, 
+    setSelectedKey,
+    validationMessage
+ }) => {
   const options: IChoiceGroupOption[] = [
     { key: 'none', text: 'None' },
     { key: 'cinc_qms', text: 'CINC QMS' },
@@ -40,6 +47,7 @@ const DatasourceSelect: React.FC<DatasourceSelectProps> = ({ isOpen, onDismiss, 
         selectedKey={selectedKey}
         onChange={onChangeDataSource}
       />
+      {validationMessage && <div style={{ color: 'red' }}>{validationMessage}</div>}
     </Dialog>
   );
 };

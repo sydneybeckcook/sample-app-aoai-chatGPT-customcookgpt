@@ -316,6 +316,8 @@ async def check_create_datasource():
     except Exception as e:
         logging.exception("Exception in /check-create-datasource")
         return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
     
 @bp.route("/get_user_id", methods=["GET"])
 def get_user_id():

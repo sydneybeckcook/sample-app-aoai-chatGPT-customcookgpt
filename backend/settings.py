@@ -799,6 +799,7 @@ class _AppSettings(BaseModel):
             elif self.base_settings.datasource_type == "AzureSqlServer":
                 self.datasource = _AzureSqlServerSettings(settings=self, _env_file=DOTENV_PATH)
                 logging.debug("Using SQL Server")
+            
                 
             else:
                 self.datasource = None
@@ -808,6 +809,13 @@ class _AppSettings(BaseModel):
 
         except ValidationError:
             logging.warning("No datasource configuration found in the environment -- calls will be made to Azure OpenAI without grounding data.")
+
+
+
+    #Update self.base_settings.datasource_type for all Search services and "None" to set datasource
+
+    #Update self.datasource to the datasource_type and support None
+
 
 
     def change_index(self, index: str) -> None:

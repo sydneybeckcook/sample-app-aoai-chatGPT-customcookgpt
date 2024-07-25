@@ -23,7 +23,9 @@ const Layout = () => {
   const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState<boolean>(false)
   const [isDataPanelOpen, setIsDataPanelOpen] = useState<boolean>(false)
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);;
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
+  const [isDataSelectionRequired, setIsDataSelectionRequired] = useState<boolean>(false);
+  const [isDataSourceSelected, setIsDataSourceSelected] = useState<boolean>(false);
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Hide chat history')
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Show chat history')
   const [logo, setLogo] = useState('')
@@ -114,19 +116,19 @@ const Layout = () => {
   useEffect(() => {
     const fetchDatasource = async () => {
       try {
-        console.log('Fetching datasource');
+        console.log('fetchDatasource - Fetching datasource');
         const response = await getDatasource();
-        console.log('Response:', response);
+        console.log('fetchDatasource response:', response);
         if (!response.ok) {
           console.error('Network response was not ok');
           throw new Error('Network response was not ok');
 
         } 
         const data = await response.json()
-        console.log('Response data:', data);
+        console.log('fetchDatasource data:', data);
         
         if (data.retrieved_datasource) {
-          console.log('Setting selected key:', data.retrieved_datasource);
+          console.log('fetchDatasource Setting selected key:', data.retrieved_datasource);
           setSelectedKey(data.retrieved_datasource);
         }else{
           setSelectedKey("none");
@@ -179,6 +181,7 @@ const Layout = () => {
           throw new Error('Network response was not ok');
         }
         console.log('Datasource upserted successfully');
+        setIsDataSourceSelected(true);
       } catch (error) {
         console.error('Failed to upsert datasource:', error);
       }
@@ -218,20 +221,40 @@ const Layout = () => {
     const checkDatasource = async () => {
       try {
         const response = await checkCreateDatasource();
+        console.log("checkDatasource response", response)
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
-        if (data.exists) {
-          console.log('Datasource settings already exist');
+        console.log("checkDatasource data", data)
+
+        if (!data.exists) {
+          console.log('Datasource settings not found');
+          setIsDataPanelOpen(true);
+          setIsDataSelectionRequired(true);
         } else {
-          console.log('Datasource settings created');
+          console.log('Datasource settings already exist');
         }
         setIsDataChecked(true);
       } catch (error) {
         console.error('Failed to check/create datasource:', error);
       }
     };
+
+
+
+
+
+    //     if (data.exists) {
+    //       console.log('Datasource settings already exist');
+    //     } else {
+    //       console.log('Datasource settings created');
+    //     }
+    //     setIsDataChecked(true);
+    //   } catch (error) {
+    //     console.error('Failed to check/create datasource:', error);
+    //   }
+    // };
 
     checkDatasource();
   }, []);
@@ -338,41 +361,9 @@ const Layout = () => {
         onDismiss={handleDataPanelDismiss} 
         selectedKey={selectedKey}
         setSelectedKey={setSelectedKey}
-      />
-      {/*
-      <Dialog
-        onDismiss={handleDataPanelDismiss}
-        hidden={!isDataPanelOpen}
-        dialogContentProps={{
-          title: 'Datasource Settings'
-        }}
-        styles={{
-          main: [
-            {
-              selectors: {
-                ['@media (min-width: 480px)']: {
-                  maxWidth: '800px',
-                  background: '#FFFFFF',
-                  boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
-                  borderRadius: '8px',
-                  maxHeight: '800px'
-                }
-              }
-            }
-          ]
-        }}
-      >
-        <div>
-          <ChoiceGroup
-            label="Select a datasource"
-            options={options}
-            selectedKey={selectedKey}
-            onChange={onChangeDataSource}
-            required
-          />
-        </div>
-      </Dialog>
-      */}
+        validationMessage={isDataSelectionRequired  && !isDataSourceSelected? 'Please select a datasource then click out of the panel.' : undefined}
+        />
+    
       {/* <Dialog
         onDismiss={handleSettingsPanelDismiss}
         hidden={!isSettingsPanelOpen}
