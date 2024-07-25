@@ -286,6 +286,30 @@ def init_cosmos_settings_client():
         logging.exception("Exception in CosmosSettingsClient initialization", e)
         return None
     
+@bp.route("/check-create-datasource", methods=["POST"])
+async def check_create_datasource():
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    user_id = authenticated_user["user_principal_id"]
+
+    cosmos_settings_client = init_cosmos_settings_client()
+    if cosmos_settings_client is None:
+        return jsonify({"error": "Failed to initialize CosmosSettingsClient"}), 500
+
+    user_datasource_manager = UserSettingsManager(cosmos_settings_client)
+
+    try:
+        exists = await user_datasource_manager.check_and_create_datasource(user_id)
+        if not exists:
+            logging.info(f"Created datasource settings for user {user_id}")
+        else:
+            logging.info(f"Datasource settings already exist for user {user_id}")
+
+        return jsonify({"message": "Datasource checked and created if not exists", "exists": exists}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /check-create-datasource")
+        return jsonify({"error": str(e)}), 500
+    
 @bp.route("/get_user_id", methods=["GET"])
 def get_user_id():
     try: 
@@ -1266,7 +1290,7 @@ async def generate_title(conversation_messages) -> str:
         return messages[-2]["content"]
     
 @bp.route("/set-datasource", methods=["POST"])
-async def get_datasource():
+async def set_datasource():
     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
     user_id = authenticated_user["user_principal_id"]
     cosmos_settings_client = init_cosmos_settings_client()
@@ -1288,6 +1312,67 @@ async def get_datasource():
 
     except Exception as e:
         logging.exception("Exception in /get-datasource")
+        return jsonify({"error": str(e)}), 500
+    
+@bp.route("/get-datasource", methods=["POST"])
+async def get_datasource():
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    user_id = authenticated_user["user_principal_id"]
+    cosmos_settings_client = init_cosmos_settings_client()
+    user_settings_manager = UserSettingsManager(cosmos_settings_client)
+
+    try:
+        # Retrieve the user's selected data source from Cosmos DB
+        user_datasource = await user_settings_manager.get_user_datasource(user_id)
+        if user_datasource:
+            current_datasource = user_datasource.get("selectedDatasource")
+            print(f"Current datasource for user {user_id}: {current_datasource}")
+        else:
+            print(f"No existing datasource found for user {user_id}")
+
+        # Store the retrieved datasource in a variable
+        retrieved_datasource = current_datasource if user_datasource else "none"
+
+        await cosmos_settings_client.cosmosdb_client.close()
+        return jsonify({"message": "Datasource retrieved successfully", "retrieved_datasource": retrieved_datasource}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /get-datasource")
+        return jsonify({"error": str(e)}), 500
+
+@bp.route("/upsert-datasource", methods=["POST"])
+async def upsert_datasource():
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    user_id = authenticated_user["user_principal_id"]
+    cosmos_settings_client = init_cosmos_settings_client()
+    user_settings_manager = UserSettingsManager(cosmos_settings_client)
+
+    try:
+        # Parse the request JSON
+        request_json = await request.get_json()
+        selected_data_source = request_json.get("selectedDataSource")
+
+        if not selected_data_source:
+            raise ValueError("No data source selected")
+
+        # Retrieve the user's current datasource settings from Cosmos DB
+        user_datasource = await user_settings_manager.get_user_datasource(user_id)
+
+        if user_datasource:
+            # Update the existing datasource
+            resp = await user_settings_manager.update_user_datasource(user_id, selected_data_source)
+            print(f"Datasource updated for user {user_id}: {selected_data_source}")
+        else:
+            # Create a new datasource record
+            resp = await user_settings_manager.create_user_datasource(user_id)
+            await user_settings_manager.update_user_datasource(user_id, selected_data_source)
+            print(f"Datasource created and set for user {user_id}: {selected_data_source}")
+
+        await cosmos_settings_client.cosmosdb_client.close()
+        return jsonify({"message": "Datasource upserted successfully", "selected_datasource": selected_data_source}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /upsert-datasource")
         return jsonify({"error": str(e)}), 500
 
 app = create_app()

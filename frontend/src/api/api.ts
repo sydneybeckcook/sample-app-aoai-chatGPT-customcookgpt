@@ -386,3 +386,55 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
     })
   return response
 }
+
+export const getDatasource = async (): Promise<Response> => {
+  const response = await fetch('/get-datasource', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+    .then(res => {
+      return res;
+    })
+    .catch(_err => {
+      console.error('There was an issue fetching your data.');
+      return new Response();
+    });
+  return response;
+};
+
+export const upsertDatasource = async (selectedDataSource: string): Promise<Response> => {
+  const response = await fetch('/upsert-datasource', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ selectedDataSource })
+  })
+    .then(res => {
+      return res;
+    })
+    .catch(_err => {
+      console.error('There was an issue fetching your data.');
+      return new Response();
+    });
+  return response;
+};
+
+export const checkCreateDatasource = async (): Promise<Response> => {
+  const response = await fetch('/check-create-datasource', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+    .then(res => {
+      return res;
+    })
+    .catch(_err => {
+      console.error('There was an issue fetching your data.');
+      return new Response();
+    });
+  return response;
+};

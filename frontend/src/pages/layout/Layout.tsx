@@ -4,7 +4,7 @@ import { Dialog, Stack, TextField, DefaultButton, Slider, ChoiceGroup, IChoiceGr
 import { CopyRegular } from '@fluentui/react-icons'
 
 // import {getOrCreateUserSettings, updateUserSettings } from '../../api'
-import { CosmosDBStatus } from '../../api'
+import { CosmosDBStatus, upsertDatasource, getDatasource, checkCreateDatasource } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
 // import { SettingsButton } from '../../components/common/Button'
 import { HistoryButton, ShareButton, HelpButton, DataButton } from '../../components/common/Button'
@@ -31,6 +31,7 @@ const Layout = () => {
   const currentUserId = appStateContext?.state.currentUserId
   const [shareableLink, setShareableLink] = useState('')
   const ui = appStateContext?.state.frontendSettings?.ui
+  const [isDataChecked, setIsDataChecked] = useState(false);
   // const defaultSystemMessage = import.meta.env.VITE_AZURE_OPENAI_SYSTEM_MESSAGE || "You are an AI assistant that helps Cook Medical employees find information.";
   // const defaultTemperature = import.meta.env.VITE_AZURE_OPENAI_TEMPERATURE || "0.7";
   // const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
@@ -110,28 +111,35 @@ const Layout = () => {
     setIsHelpPanelOpen(false)
   }
 
-  const handleDataClick = () => {
+  const handleDataClick = async () => {
     setIsDataPanelOpen(true);
+
+    try {
+      const response = await getDatasource();
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      if (data.retrieved_datasource) {
+        setSelectedKey(data.retrieved_datasource);
+      }
+    } catch (error) {
+      console.error('Failed to retrieve datasource:', error);
+    }
   };
 
   const handleDataPanelDismiss = async () => {
     setIsDataPanelOpen(false);
     if (selectedKey) {
       try {
-        const response = await fetch('/update-datasource', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ selectedDataSource: selectedKey }),
-        });
+        const response = await upsertDatasource(selectedKey);
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
-        console.log('Datasource updated successfully:', data);
+        console.log('Datasource upserted successfully:', data);
       } catch (error) {
-        console.error('Failed to update datasource:', error);
+        console.error('Failed to upsert datasource:', error);
       }
     }
   };
@@ -169,6 +177,28 @@ const Layout = () => {
 
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    const checkDatasource = async () => {
+      try {
+        const response = await checkCreateDatasource();
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        if (data.exists) {
+          console.log('Datasource settings already exist');
+        } else {
+          console.log('Datasource settings created');
+        }
+        setIsDataChecked(true);
+      } catch (error) {
+        console.error('Failed to check/create datasource:', error);
+      }
+    };
+
+    checkDatasource();
+  }, []);
 
   return (
     <div className={styles.layout}>

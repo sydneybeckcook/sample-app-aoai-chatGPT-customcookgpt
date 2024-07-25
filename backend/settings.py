@@ -85,7 +85,7 @@ class _ChatHistorySettings(BaseSettings):
     container_responses: str
     
     container_settings: str
-    container_datasources: str
+    container_datasource_settings: str
 
 class _PromptflowSettings(BaseSettings):
     model_config = SettingsConfigDict(

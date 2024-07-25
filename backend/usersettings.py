@@ -34,3 +34,10 @@ class UserSettingsManager:
     async def update_user_datasource(self, user_id, selected_datasource):
         resp = await self.cosmos_settings_client.update_datasource(user_id, selected_datasource)
         return resp
+    
+    async def check_and_create_datasource(self, user_id):
+        settings = await self.get_user_datasource(user_id)
+        if settings is None:
+            await self.create_user_datasource(user_id)
+            return False
+        return True
