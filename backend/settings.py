@@ -751,6 +751,7 @@ class _AppSettings(BaseModel):
     chat_history: Optional[_ChatHistorySettings] = None
     datasource: Optional[DatasourcePayloadConstructor] = None
     promptflow: Optional[_PromptflowSettings] = None
+
  
 
     @model_validator(mode="after")
@@ -812,10 +813,12 @@ class _AppSettings(BaseModel):
 
 
 
-    #Update self.base_settings.datasource_type for all Search services and "None" to set datasource
+    def set_datasource_type(self, datasource_type:str):
+        self.base_settings.datasource_type = datasource_type
+        self.set_datasource_settings()
 
-    #Update self.datasource to the datasource_type and support None
-
+    def get_datasource_type(self):
+        return {"datasource_type": self.base_settings.datasource_type}
 
 
     def change_index(self, index: str) -> None:
@@ -842,7 +845,7 @@ class _AppSettings(BaseModel):
             else:
                 logging.warning(f"Datasource type is not supported for index change.")
         else:
-            logging.warning("No datasource is configured. Cannot change index.")
+            logging.info("No datasource is configured. Cannot change index.")
 
     def get_datasource_fields(self):
         if self.datasource:
@@ -852,3 +855,23 @@ class _AppSettings(BaseModel):
 
 
 app_settings = _AppSettings()
+
+
+
+# in root directory run python -m backend.settings 
+# to test this script only but make sure your .env is correct
+# print(f" datasource fields: {app_settings.get_datasource_fields()}")
+# print(f" datasource type: {app_settings.get_datasource_type()}")
+
+
+# app_settings.set_datasource_type("None type")
+# print(f" datasource fields: {app_settings.get_datasource_fields()}")
+# print(f" datasource type: {app_settings.get_datasource_type()}")
+
+
+# app_settings.set_datasource_type("AzureCognitiveSearch")
+# print(f" datasource fields: {app_settings.get_datasource_fields()}")
+# print(f" datasource type: {app_settings.get_datasource_type()}")
+
+
+

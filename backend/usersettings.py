@@ -41,3 +41,9 @@ class UserSettingsManager:
             await self.create_user_datasource(user_id)
             return False
         return True
+    
+    async def check_datasource(self, user_id):
+        settings = await self.get_user_datasource(user_id)
+        if settings is None:
+            return False
+        return True

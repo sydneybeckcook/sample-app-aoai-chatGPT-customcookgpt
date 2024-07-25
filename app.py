@@ -299,19 +299,38 @@ async def check_create_datasource():
     user_datasource_manager = UserSettingsManager(cosmos_settings_client)
 
     try:
-        exists = await user_datasource_manager.check_and_create_datasource(user_id)
-        if not exists:
-            logging.info(f"Created datasource settings for user {user_id}")
-        else:
+        # exists = await user_datasource_manager.check_and_create_datasource(user_id)
+        exists = await user_datasource_manager.check_datasource(user_id)
+
+        if exists:
             logging.info(f"Datasource settings already exist for user {user_id}")
+            resp = await user_datasource_manager.get_user_datasource(user_id)
+            if resp['selectedDatasource'] == "none":
+                app_settings.set_datasource_type("Not Using Data")
+            else:
+                app_settings.set_datasource_type("AzureCognitiveSearch")
+                app_settings.change_index(resp['selectedDatasource'])
+            
+            logging.info(f"check_create_datasource - updated datasource type {app_settings.get_datasource_type()}")
+            logging.info(f"check_create_datasource - updated datasource field {app_settings.get_datasource_fields()}")
+        return jsonify({"message": "Datasource checked", "exists": exists}), 200
 
-        user_datasource = await user_datasource_manager.get_user_datasource(user_id)
-        if app_settings.datasource:
-            logging.info(f"user_datasource['selectedDatasource']: {user_datasource['selectedDatasource']}")
-            app_settings.change_index(user_datasource["selectedDatasource"])
-            logging.info(f"current datasource fields: {app_settings.get_datasource_fields()}")
+        # if not exists:
+        #     logging.info(f"Created datasource settings for user {user_id}")
 
-        return jsonify({"message": "Datasource checked and created if not exists", "exists": exists}), 200
+        # else:
+        #     logging.info(f"Datasource settings already exist for user {user_id}")
+        #     resp = await user_datasource_manager.get_user_datasource(user_id)
+        #     if resp['selectedDatasource'] == "none":
+        #         app_settings.set_datasource_type("Not Using Data")
+        #     else:
+        #         app_settings.set_datasource_type("AzureCognitiveSearch")
+        #         app_settings.change_index(resp['selectedDatasource'])
+            
+        #     logging.info(f"check_create_datasource - updated datasource type {app_settings.get_datasource_type}")
+        #     logging.info(f"check_create_datasource - updated datasource field {app_settings.get_datasource_fields()}")
+
+        # return jsonify({"message": "Datasource checked and created if not exists", "exists": exists}), 200
 
     except Exception as e:
         logging.exception("Exception in /check-create-datasource")
@@ -1298,30 +1317,30 @@ async def generate_title(conversation_messages) -> str:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
     
-@bp.route("/set-datasource", methods=["POST"])
-async def set_datasource():
-    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
-    user_id = authenticated_user["user_principal_id"]
-    cosmos_settings_client = init_cosmos_settings_client()
-    user_settings_manager = UserSettingsManager(cosmos_settings_client)
+# @bp.route("/set-datasource", methods=["POST"])
+# async def set_datasource():
+#     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+#     user_id = authenticated_user["user_principal_id"]
+#     cosmos_settings_client = init_cosmos_settings_client()
+#     user_settings_manager = UserSettingsManager(cosmos_settings_client)
 
-    try:
-        # Retrieve the user's selected data source from Cosmos DB
-        user_datasource = await user_settings_manager.get_user_datasource(user_id)
-        if user_datasource:
-            current_datasource = user_datasource.get("selectedDatasource")
-            print(f"Current datasource for user {user_id}: {current_datasource}")
-        else:
-            print(f"No existing datasource found for user {user_id}")
+#     try:
+#         # Retrieve the user's selected data source from Cosmos DB
+#         user_datasource = await user_settings_manager.get_user_datasource(user_id)
+#         if user_datasource:
+#             current_datasource = user_datasource.get("selectedDatasource")
+#             print(f"Current datasource for user {user_id}: {current_datasource}")
+#         else:
+#             print(f"No existing datasource found for user {user_id}")
 
-        # Store the retrieved datasource in a variable
-        retrieved_datasource = current_datasource if user_datasource else "none"
+#         # Store the retrieved datasource in a variable
+#         retrieved_datasource = current_datasource if user_datasource else "none"
 
-        return jsonify({"message": "Datasource retrieved successfully", "retrieved_datasource": retrieved_datasource}), 200
+#         return jsonify({"message": "Datasource retrieved successfully", "retrieved_datasource": retrieved_datasource}), 200
 
-    except Exception as e:
-        logging.exception("Exception in /set-datasource")
-        return jsonify({"error": str(e)}), 500
+#     except Exception as e:
+#         logging.exception("Exception in /set-datasource")
+#         return jsonify({"error": str(e)}), 500
     
 @bp.route("/get-datasource", methods=["POST"])
 async def get_datasource():
@@ -1338,11 +1357,6 @@ async def get_datasource():
             print(f"Current datasource for user {user_id}: {current_datasource}")
             logging.info(f"Current datasource for user {user_id}: {current_datasource}")
 
-            if app_settings.datasource:
-                logging.info(f"user_datasource['selectedDatasource']: {user_datasource['selectedDatasource']}")
-                app_settings.change_index(user_datasource["selectedDatasource"])
-                logging.info(f"current datasource fields: {app_settings.get_datasource_fields()}")
-
         else:
             print(f"No existing datasource found for user {user_id}")
             logging.info(f"No existing datasource found for user {user_id}")
@@ -1350,13 +1364,17 @@ async def get_datasource():
         # Store the retrieved datasource in a variable
         retrieved_datasource = current_datasource if user_datasource else "none"
 
-        await cosmos_settings_client.cosmosdb_client.close()
+        
         return jsonify({"message": "Datasource retrieved successfully", "retrieved_datasource": retrieved_datasource}), 200
 
     except Exception as e:
         logging.exception("Exception in /get-datasource")
         print(f"Exception in /get-datasource: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+
+
 
 @bp.route("/upsert-datasource", methods=["POST"])
 async def upsert_datasource():
@@ -1386,18 +1404,25 @@ async def upsert_datasource():
             await user_settings_manager.update_user_datasource(user_id, selected_data_source)
             print(f"Datasource created and set for user {user_id}: {selected_data_source}")
 
-        if app_settings.datasource:
-            logging.info(f"resp['selectedDatasource']: {resp['selectedDatasource']}")
-            logging.info(f"current datasource field: {app_settings.get_datasource_fields()}")
-            app_settings.change_index(resp["selectedDatasource"])
-            logging.info(f"updated datasource field: {app_settings.get_datasource_fields()}")
+
+        if resp['selectedDatasource'] == "none":
+            app_settings.set_datasource_type("Not Using Data")
+        else:
+            app_settings.set_datasource_type("AzureCognitiveSearch")
+            app_settings.change_index(resp['selectedDatasource'])
         
-        await cosmos_settings_client.cosmosdb_client.close()
+        logging.info(f"upsert_datasource - updated datasource type {app_settings.get_datasource_type()}")
+        logging.info(f"upsert_datasource - updated datasource field {app_settings.get_datasource_fields()}")
+    
+        
         return jsonify({"message": "Datasource upserted successfully", "selected_datasource": selected_data_source}), 200
 
     except Exception as e:
         logging.exception("Exception in /upsert-datasource")
         return jsonify({"error": str(e)}), 500
+    finally:
+        await cosmos_settings_client.cosmosdb_client.close()
+
 
 app = create_app()
 

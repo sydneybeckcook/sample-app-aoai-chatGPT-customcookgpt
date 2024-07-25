@@ -241,21 +241,6 @@ const Layout = () => {
       }
     };
 
-
-
-
-
-    //     if (data.exists) {
-    //       console.log('Datasource settings already exist');
-    //     } else {
-    //       console.log('Datasource settings created');
-    //     }
-    //     setIsDataChecked(true);
-    //   } catch (error) {
-    //     console.error('Failed to check/create datasource:', error);
-    //   }
-    // };
-
     checkDatasource();
   }, []);
 
