@@ -400,7 +400,7 @@ class CosmosPrivacyNoticeClient:
 
 class CosmosSettingsClient:
 
-    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, settings_container_name: str, datasource_container_name: str):
+    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, settings_container_name: str, datasource_settings_container_name: str):
         self.cosmosdb_endpoint = cosmosdb_endpoint
         self.credential = credential
         self.database_name = database_name
@@ -408,7 +408,7 @@ class CosmosSettingsClient:
         self.cosmosdb_client = CosmosClient(self.cosmosdb_endpoint, credential=credential)
         self.database_client = self.cosmosdb_client.get_database_client(database_name)
         self.settings_container_client = self.database_client.get_container_client(settings_container_name)
-        self.datasource_container_client = self.database_client.get_container_client(datasource_container_name)
+        self.datasource_container_client = self.database_client.get_container_client(datasource_settings_container_name)
 
     async def get_settings(self, user_id):
         query = f"SELECT * FROM c WHERE c.userId = @userId AND c.type = 'userSettings'"

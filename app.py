@@ -59,6 +59,7 @@ def create_app():
 
 @bp.route("/")
 async def index():
+    set_model_config_in_session(app_settings.azure_openai.model_v3)
     return await render_template(
         "index.html",
         title=app_settings.ui.title,
@@ -303,6 +304,12 @@ async def check_create_datasource():
             logging.info(f"Created datasource settings for user {user_id}")
         else:
             logging.info(f"Datasource settings already exist for user {user_id}")
+
+        user_datasource = await user_datasource_manager.get_user_datasource(user_id)
+        if app_settings.datasource:
+            logging.info(f"user_datasource['selectedDatasource']: {user_datasource['selectedDatasource']}")
+            app_settings.change_index(user_datasource["selectedDatasource"])
+            logging.info(f"current datasource fields: {app_settings.get_datasource_fields()}")
 
         return jsonify({"message": "Datasource checked and created if not exists", "exists": exists}), 200
 
@@ -1311,7 +1318,7 @@ async def set_datasource():
         return jsonify({"message": "Datasource retrieved successfully", "retrieved_datasource": retrieved_datasource}), 200
 
     except Exception as e:
-        logging.exception("Exception in /get-datasource")
+        logging.exception("Exception in /set-datasource")
         return jsonify({"error": str(e)}), 500
     
 @bp.route("/get-datasource", methods=["POST"])
@@ -1327,8 +1334,16 @@ async def get_datasource():
         if user_datasource:
             current_datasource = user_datasource.get("selectedDatasource")
             print(f"Current datasource for user {user_id}: {current_datasource}")
+            logging.info(f"Current datasource for user {user_id}: {current_datasource}")
+
+            if app_settings.datasource:
+                logging.info(f"user_datasource['selectedDatasource']: {user_datasource['selectedDatasource']}")
+                app_settings.change_index(user_datasource["selectedDatasource"])
+                logging.info(f"current datasource fields: {app_settings.get_datasource_fields()}")
+
         else:
             print(f"No existing datasource found for user {user_id}")
+            logging.info(f"No existing datasource found for user {user_id}")
 
         # Store the retrieved datasource in a variable
         retrieved_datasource = current_datasource if user_datasource else "none"
@@ -1338,6 +1353,7 @@ async def get_datasource():
 
     except Exception as e:
         logging.exception("Exception in /get-datasource")
+        print(f"Exception in /get-datasource: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route("/upsert-datasource", methods=["POST"])
@@ -1368,6 +1384,12 @@ async def upsert_datasource():
             await user_settings_manager.update_user_datasource(user_id, selected_data_source)
             print(f"Datasource created and set for user {user_id}: {selected_data_source}")
 
+        if app_settings.datasource:
+            logging.info(f"resp['selectedDatasource']: {resp['selectedDatasource']}")
+            logging.info(f"current datasource field: {app_settings.get_datasource_fields()}")
+            app_settings.change_index(resp["selectedDatasource"])
+            logging.info(f"updated datasource field: {app_settings.get_datasource_fields()}")
+        
         await cosmos_settings_client.cosmosdb_client.close()
         return jsonify({"message": "Datasource upserted successfully", "selected_datasource": selected_data_source}), 200
 

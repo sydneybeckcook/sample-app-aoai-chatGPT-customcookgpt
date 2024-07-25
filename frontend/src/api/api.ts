@@ -387,6 +387,7 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
   return response
 }
 
+
 export const getDatasource = async (): Promise<Response> => {
   const response = await fetch('/get-datasource', {
     method: 'POST',
@@ -403,6 +404,8 @@ export const getDatasource = async (): Promise<Response> => {
     });
   return response;
 };
+
+
 
 export const upsertDatasource = async (selectedDataSource: string): Promise<Response> => {
   const response = await fetch('/upsert-datasource', {

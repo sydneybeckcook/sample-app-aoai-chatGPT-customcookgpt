@@ -4,13 +4,14 @@ import { Dialog, Stack, TextField, DefaultButton, Slider, ChoiceGroup, IChoiceGr
 import { CopyRegular } from '@fluentui/react-icons'
 
 // import {getOrCreateUserSettings, updateUserSettings } from '../../api'
-import { CosmosDBStatus, upsertDatasource, getDatasource, checkCreateDatasource } from '../../api'
+import { CosmosDBStatus, getDatasource, upsertDatasource, checkCreateDatasource } from '../../api'
 import Contoso from '../../assets/Contoso.svg'
 // import { SettingsButton } from '../../components/common/Button'
 import { HistoryButton, ShareButton, HelpButton, DataButton } from '../../components/common/Button'
 import CookLogo from '../../assets/CookLogo.svg'
 import { AppStateContext } from '../../state/AppProvider'
 import PrivacyNotice from '../../constants/privacyNotice'
+import DatasourceSelect from '../../constants/datasourceSelect'
 
 import styles from './Layout.module.css'
 
@@ -22,7 +23,7 @@ const Layout = () => {
   const [shareLabel, setShareLabel] = useState<string | undefined>('Share')
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState<boolean>(false)
   const [isDataPanelOpen, setIsDataPanelOpen] = useState<boolean>(false)
-  const [selectedKey, setSelectedKey] = useState('');
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);;
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Hide chat history')
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Show chat history')
   const [logo, setLogo] = useState('')
@@ -37,14 +38,14 @@ const Layout = () => {
   // const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
   // const [temperature, setTemperature] = useState(defaultTemperature);
 
-  const options: IChoiceGroupOption[] = [
-    { key: 'none', text: 'None' },
-    { key: 'cinc_qms', text: 'CINC QMS' },
-    { key: 'cmh_qms', text: 'CMH QMS' },
-    { key: 'marketing', text: 'Marketing' },
-    { key: 'hr', text: 'HR' },
-    { key: 'rd', text: 'R&D' },
-  ];
+  // const options: IChoiceGroupOption[] = [
+  //   { key: 'none', text: 'None' },
+  //   { key: 'cinc_qms', text: 'CINC QMS' },
+  //   { key: 'cmh_qms', text: 'CMH QMS' },
+  //   { key: 'marketing', text: 'Marketing' },
+  //   { key: 'hr', text: 'HR' },
+  //   { key: 'rd', text: 'R&D' },
+  // ];
 
   const handleShareClick = (link: string) => {
     setShareableLink(link)
@@ -110,45 +111,80 @@ const Layout = () => {
   const handleHelpPanelDismiss = () => {
     setIsHelpPanelOpen(false)
   }
+  useEffect(() => {
+    const fetchDatasource = async () => {
+      try {
+        console.log('Fetching datasource');
+        const response = await getDatasource();
+        console.log('Response:', response);
+        if (!response.ok) {
+          console.error('Network response was not ok');
+          throw new Error('Network response was not ok');
+
+        } 
+        const data = await response.json()
+        console.log('Response data:', data);
+        
+        if (data.retrieved_datasource) {
+          console.log('Setting selected key:', data.retrieved_datasource);
+          setSelectedKey(data.retrieved_datasource);
+        }else{
+          setSelectedKey("none");
+        }
+      } catch (error) {
+          console.error('Failed to retrieve datasource:', error);
+          setSelectedKey("none")
+        }
+    };
+
+    fetchDatasource();
+  }, []);
+
+
 
   const handleDataClick = async () => {
     setIsDataPanelOpen(true);
-
     try {
+      console.log('Fetching datasource');
       const response = await getDatasource();
+      console.log('Response:', response);
       if (!response.ok) {
+        console.error('Network response was not ok');
         throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
+
+      } 
+      const data = await response.json()
+      console.log('Response data:', data);
+      
       if (data.retrieved_datasource) {
+        console.log('Setting selected key:', data.retrieved_datasource);
         setSelectedKey(data.retrieved_datasource);
+      }else{
+        setSelectedKey("none");
       }
     } catch (error) {
-      console.error('Failed to retrieve datasource:', error);
-    }
-  };
+        console.error('Failed to retrieve datasource:', error);
+        setSelectedKey("none")
+      }
+  }
 
   const handleDataPanelDismiss = async () => {
-    setIsDataPanelOpen(false);
     if (selectedKey) {
+      console.log('Selected key to upsert:', selectedKey);
       try {
         const response = await upsertDatasource(selectedKey);
+        console.log('Upsert response:', response);
         if (!response.ok) {
+          console.error('Network response was not ok');
           throw new Error('Network response was not ok');
         }
-        const data = await response.json();
-        console.log('Datasource upserted successfully:', data);
+        console.log('Datasource upserted successfully');
       } catch (error) {
         console.error('Failed to upsert datasource:', error);
       }
     }
-  };
-
-  const onChangeDataSource = (event?: React.FormEvent<HTMLElement | HTMLInputElement>, option?: IChoiceGroupOption) => {
-    if (option) {
-      setSelectedKey(option.key);
-      console.log('Selected datasource:', option.key);
-    }
+    setIsDataPanelOpen(false);
+    console.log('Datasource panel closed');
   };
 
   useEffect(() => {
@@ -297,6 +333,13 @@ const Layout = () => {
           <br></br>
         </div>
       </Dialog>
+      <DatasourceSelect
+        isOpen={isDataPanelOpen}
+        onDismiss={handleDataPanelDismiss} 
+        selectedKey={selectedKey}
+        setSelectedKey={setSelectedKey}
+      />
+      {/*
       <Dialog
         onDismiss={handleDataPanelDismiss}
         hidden={!isDataPanelOpen}
@@ -329,6 +372,7 @@ const Layout = () => {
           />
         </div>
       </Dialog>
+      */}
       {/* <Dialog
         onDismiss={handleSettingsPanelDismiss}
         hidden={!isSettingsPanelOpen}
