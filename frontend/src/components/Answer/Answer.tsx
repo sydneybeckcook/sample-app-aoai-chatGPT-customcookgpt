@@ -21,9 +21,10 @@ interface Props {
   answer: AskResponse
   onCitationClicked: (citedDocument: Citation) => void
   onExectResultClicked: () => void
+  isSharedConversation: boolean;
 }
 
-export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Props) => {
+export const Answer = ({ answer, onCitationClicked, onExectResultClicked, isSharedConversation}: Props) => {
   const initializeAnswerFeedback = (answer: AskResponse) => {
     if (answer.message_id == undefined) return undefined
     if (answer.feedback == undefined) return undefined
@@ -392,7 +393,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
               onClick={copyAnswerToClipboard}
               className={styles.copyButton}
             />
-            {FEEDBACK_ENABLED && answer.message_id !== undefined && (
+            {FEEDBACK_ENABLED && !isSharedConversation && answer.message_id !== undefined && (
               <Stack horizontal horizontalAlign="space-between" verticalAlign="center" className={styles.feedbackIcons}>
                 <ThumbLike20Filled
                   aria-hidden="false"

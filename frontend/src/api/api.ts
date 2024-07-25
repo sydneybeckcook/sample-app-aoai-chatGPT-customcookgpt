@@ -386,3 +386,51 @@ export const historyMessageFeedback = async (messageId: string, feedback: string
     })
   return response
 }
+
+export const getSharedConversation = async (sharedConversationId: string): Promise<Conversation | null> => {
+  const response = await fetch(`/api/get_shared_conversation/${sharedConversationId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+    .then(async res => {
+      if (!res.ok) {
+        const errorMessage = `Failed to fetch conversation: ${res.statusText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+      return res.json();
+    })
+    .catch(err => {
+      console.error('There was an issue fetching the shared conversation:', err);
+      return null;
+    });
+
+  return response;
+};
+
+// Function to share a conversation
+export const shareConversation = async (conversationId: string): Promise<string | null> => {
+  const response = await fetch(`/api/share/${conversationId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+    .then(async res => {
+      if (!res.ok) {
+        const errorMessage = `Failed to share conversation: ${res.statusText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+      const data = await res.json();
+      return data.shareableLink;
+    })
+    .catch(err => {
+      console.error('There was an issue sharing the conversation:', err);
+      return null;
+    });
+
+  return response;
+};

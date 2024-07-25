@@ -3,6 +3,6 @@
     "@types/node": "^20.14.10"
   },
   "dependencies": {
-    "react-mathjax": "^1.0.1"
+    "react-loader-spinner": "^6.1.6"
   }
 }

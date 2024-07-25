@@ -241,6 +241,7 @@ class CosmosConversationClient():
             'id': shared_conversation_id,
             'originalConversationId': conversation_id,
             'sharedAt': datetime.utcnow().isoformat(),
+            'userId': user_id,  # Add this line to include the userId
             'conversation': conversation,
             'messages': messages
         }
@@ -258,29 +259,30 @@ class CosmosConversationClient():
         except Exception as e:
             logging.error(f"Error upserting shared conversation: {e}")
             return False
-
+        
     async def get_shared_conversation(self, shared_conversation_id):
-        query = "SELECT * FROM c WHERE c.originalConversationId = @sharedConversationId"
+        query = "SELECT * FROM c WHERE c.id = @sharedConversationId"
         parameters = [{"name": "@sharedConversationId", "value": shared_conversation_id}]
         logging.info(f"Running query: {query} with parameters: {parameters}")
 
-        conversations = []
+        conversation = []
         try:
-            async for item in self.shared_convos_container_client.query_items(query=query, parameters=parameters):
-                conversations.append(item)
+            async for item in self.shared_convos_container_client.query_items(
+                query=query,
+                parameters=parameters
+            ):
+                conversation.append(item)
                 logging.info(f"Found conversation: {item}")
         except Exception as e:
             logging.error(f"Error querying shared conversations: {e}")
             return None
 
-        if conversations:
+        if conversation:
             logging.info(f"Returning conversation with ID: {shared_conversation_id}")
+            return conversation[0]
         else:
             logging.info(f"No conversations found for ID: {shared_conversation_id}")
-            
-        return conversations[0] if conversations else None
-
-    
+            return None
 class CosmosTokenClient():
 
     def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, token_container_name: str, user_privilege_container_name: str):

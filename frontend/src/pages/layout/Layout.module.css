@@ -6,6 +6,12 @@
 
 .header {
   background-color: #f2f2f2;
+  position: relative;
+}
+
+.headerStack {
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .headerContainer {
@@ -17,12 +23,20 @@
 .headerTitleContainer {
   display: flex;
   align-items: center;
-  margin-left: 14px;
   text-decoration: none;
 }
 
 .headerLogo{
   align-self: start;
+}
+
+.headerCenterContainer {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .headerTitle {

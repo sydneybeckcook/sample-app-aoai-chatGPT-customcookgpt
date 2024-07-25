@@ -6,6 +6,7 @@ import { initializeIcons } from '@fluentui/react'
 import Chat from './pages/chat/Chat'
 import Layout from './pages/layout/Layout'
 import NoPage from './pages/NoPage'
+import SharedConversation from './pages/share/SharedConversation'
 import { AppStateProvider } from './state/AppProvider'
 
 import './index.css'
@@ -19,6 +20,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Chat />} />
+            <Route path="share/:sharedConversationId" element={<SharedConversation />} />
             <Route path="*" element={<NoPage />} />
           </Route>
         </Routes>
@@ -32,3 +34,4 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <App />
   </React.StrictMode>
 )
+

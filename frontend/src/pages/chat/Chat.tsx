@@ -64,9 +64,7 @@ const Chat = () => {
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
   const [selectedModel, setSelectedModel] = useState('gpt-35-turbo')
-
-
-
+  const isSharedConversation = false;
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -898,6 +896,7 @@ const Chat = () => {
                           }}
                           onCitationClicked={c => onShowCitation(c)}
                           onExectResultClicked={() => onShowExecResult()}
+                          isSharedConversation={isSharedConversation}
                         />
                       </div>
                     ) : answer.role === ERROR ? (
@@ -922,6 +921,7 @@ const Chat = () => {
                         }}
                         onCitationClicked={() => null}
                         onExectResultClicked={() => null}
+                        isSharedConversation={isSharedConversation}
                       />
                     </div>
                   </>

@@ -131,13 +131,15 @@ const Layout = () => {
     <div className={styles.layout}>
       <PrivacyNotice />
       <header className={styles.header} role={'banner'}>
-        <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
+        <Stack horizontal verticalAlign="center" horizontalAlign="space-between" className={styles.headerStack}>
           <img src={ui?.logo ? ui.logo : CookLogo} className={styles.headerIcon} aria-hidden="true" alt="" />
-          <Link to="/" className={styles.headerTitleContainer}>
-            <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
-          </Link>
+          <div className={styles.headerCenterContainer}>
+            <Link to="/" className={styles.headerTitleContainer}>
+              <h1 className={styles.headerTitle}>Custom CookGPT Beta</h1>
+            </Link>
+          </div>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
-            {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
+            {!appStateContext?.state.hideRightWrapperButtons && appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
               <HistoryButton
                 onClick={handleHistoryClick}
                 text={appStateContext?.state?.isChatHistoryOpen ? hideHistoryLabel : showHistoryLabel}
