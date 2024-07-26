@@ -463,12 +463,13 @@ a {
 .tokenUsageContainer {
   text-align: left;
   padding: 10px;
+  padding-bottom: 30px;
   width: 200px;
   z-index: 1000;
   position: absolute;
   left: 105%;
   right: 30px;
-  /* top: auto; */
   bottom: -2rem;
-
 }
+  
+  

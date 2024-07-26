@@ -1048,7 +1048,7 @@ const Chat = () => {
               />
               {/*insert code of components here */}
               {/** test block for the percentage*/}
-              <div className={styles.tokenUsageContainer}>
+              <Stack className={styles.tokenUsageContainer}>
                 <h3>Tokens Remaining</h3>
                 {tokenUsagePercentage !== null ? (
                   <div>
@@ -1063,7 +1063,7 @@ const Chat = () => {
                 ) : (
                   <div>Loading...</div>
                 )}
-              </div>
+              </Stack>
             </Stack>
           </div>
           {/* Citation Panel */}
