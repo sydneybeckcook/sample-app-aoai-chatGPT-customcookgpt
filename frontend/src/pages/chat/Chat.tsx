@@ -1055,7 +1055,7 @@ const Chat = () => {
           />
         </div>
       ) : (
-        <div>Loading...</div>  // You can replace this with any loading indicator you prefer
+        <div>Loading...</div>  
       )}
     </div>
             </Stack>
