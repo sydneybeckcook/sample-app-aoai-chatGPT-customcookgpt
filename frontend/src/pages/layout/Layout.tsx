@@ -40,15 +40,6 @@ const Layout = () => {
   // const [systemMessage, setSystemMessage] = useState(defaultSystemMessage);
   // const [temperature, setTemperature] = useState(defaultTemperature);
 
-  // const options: IChoiceGroupOption[] = [
-  //   { key: 'none', text: 'None' },
-  //   { key: 'cinc_qms', text: 'CINC QMS' },
-  //   { key: 'cmh_qms', text: 'CMH QMS' },
-  //   { key: 'marketing', text: 'Marketing' },
-  //   { key: 'hr', text: 'HR' },
-  //   { key: 'rd', text: 'R&D' },
-  // ];
-
   const handleShareClick = (link: string) => {
     setShareableLink(link)
     setIsSharePanelOpen(true)
@@ -113,6 +104,7 @@ const Layout = () => {
   const handleHelpPanelDismiss = () => {
     setIsHelpPanelOpen(false)
   }
+
   useEffect(() => {
     const fetchDatasource = async () => {
       try {
@@ -141,8 +133,6 @@ const Layout = () => {
 
     fetchDatasource();
   }, []);
-
-
 
   const handleDataClick = async () => {
     setIsDataPanelOpen(true);
@@ -343,12 +333,11 @@ const Layout = () => {
       </Dialog>
       <DatasourceSelect
         isOpen={isDataPanelOpen}
-        onDismiss={handleDataPanelDismiss} 
+        onDismiss={handleDataPanelDismiss}
         selectedKey={selectedKey}
         setSelectedKey={setSelectedKey}
-        validationMessage={isDataSelectionRequired  && !isDataSourceSelected? 'Please select a datasource then click out of the panel.' : undefined}
-        />
-    
+        validationMessage={isDataSelectionRequired && !isDataSourceSelected ? 'Please select a datasource.' : undefined}
+      />
       {/* <Dialog
         onDismiss={handleSettingsPanelDismiss}
         hidden={!isSettingsPanelOpen}

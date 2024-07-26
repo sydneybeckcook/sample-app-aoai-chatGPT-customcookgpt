@@ -1,0 +1,25 @@
+
+.buttonCenter {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  
+  .buttonSelect {
+    background-color: #115EA3;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .buttonSelect:hover {
+    background-color: #113fa3;
+  }
+  
+  .validationMessage {
+    color: red;
+    font-weight: bold;
+    text-align: center;
+  }

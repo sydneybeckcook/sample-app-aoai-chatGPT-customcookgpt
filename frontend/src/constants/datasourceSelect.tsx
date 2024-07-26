@@ -1,5 +1,6 @@
 import React from 'react';
 import { Dialog, ChoiceGroup, IChoiceGroupOption } from '@fluentui/react';
+import styles from './DatasourceSelect.module.css';
 
 interface DatasourceSelectProps {
   isOpen: boolean;
@@ -10,19 +11,17 @@ interface DatasourceSelectProps {
 }
 
 const DatasourceSelect: React.FC<DatasourceSelectProps> = ({ 
-    isOpen, 
-    onDismiss, 
-    selectedKey, 
-    setSelectedKey,
-    validationMessage
- }) => {
+  isOpen, 
+  onDismiss, 
+  selectedKey, 
+  setSelectedKey,
+  validationMessage
+}) => {
   const options: IChoiceGroupOption[] = [
     { key: 'none', text: 'None' },
-    { key: 'cinc_qms', text: 'CINC QMS' },
-    { key: 'cmh_qms', text: 'CMH QMS' },
+    { key: 'cinc-qms-documents', text: 'CINC QMS Documents' },
+    { key: 'cinc-manu-proce-documents', text: 'CINC Manufacturing Procedures' },
     { key: 'marketing', text: 'Marketing' },
-    { key: 'hr', text: 'HR' },
-    { key: 'rd', text: 'R&D' }
   ];
 
   const onChangeDataSource = (
@@ -47,7 +46,16 @@ const DatasourceSelect: React.FC<DatasourceSelectProps> = ({
         selectedKey={selectedKey}
         onChange={onChangeDataSource}
       />
-      {validationMessage && <div style={{ color: 'red' }}>{validationMessage}</div>}
+      <br></br>
+      {validationMessage && <div className={styles.validationMessage}>{validationMessage}</div>}
+      <div className={styles.buttonCenter}>
+        <button
+          onClick={onDismiss}
+          className={styles.buttonSelect}
+        >
+          Select
+        </button>
+      </div>
     </Dialog>
   );
 };
