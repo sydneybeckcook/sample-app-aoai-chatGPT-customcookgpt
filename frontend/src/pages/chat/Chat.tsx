@@ -2,7 +2,6 @@ import { useRef, useState, useEffect, useContext, useLayoutEffect } from 'react'
 import { CommandBarButton, IconButton, Dialog, DialogType, Stack, ProgressIndicator } from '@fluentui/react'
 import { SquareRegular, ShieldLockRegular, ErrorCircleRegular } from '@fluentui/react-icons'
 
-
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -32,13 +31,13 @@ import {
   ChatHistoryLoadingState,
   CosmosDBStatus,
   ErrorMessage,
-  ExecResults,
-} from "../../api";
-import { Answer } from "../../components/Answer";
-import { QuestionInput } from "../../components/QuestionInput";
-import { ChatHistoryPanel } from "../../components/ChatHistory/ChatHistoryPanel";
-import { AppStateContext } from "../../state/AppProvider";
-import { useBoolean } from "@fluentui/react-hooks";
+  ExecResults
+} from '../../api'
+import { Answer } from '../../components/Answer'
+import { QuestionInput } from '../../components/QuestionInput'
+import { ChatHistoryPanel } from '../../components/ChatHistory/ChatHistoryPanel'
+import { AppStateContext } from '../../state/AppProvider'
+import { useBoolean } from '@fluentui/react-hooks'
 
 const enum messageStatus {
   NotRunning = 'Not Running',
@@ -65,25 +64,25 @@ const Chat = () => {
   const [hideErrorDialog, { toggle: toggleErrorDialog }] = useBoolean(true)
   const [errorMsg, setErrorMsg] = useState<ErrorMessage | null>()
   const [selectedModel, setSelectedModel] = useState('gpt-35-turbo')
-  const [tokenUsagePercentage, setTokenUsagePercentage] = useState<number | null>(null);
+  const [tokenUsagePercentage, setTokenUsagePercentage] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchUserId = async () => {
-        try {
-            const response = await fetch('/get_user_id');
-            if (response.ok) {
-                const data = await response.json();
-                appStateContext?.dispatch({
-                    type: 'UPDATE_CURRENT_USER_ID',
-                    payload: data.userId,
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching user ID:', error);
+      try {
+        const response = await fetch('/get_user_id')
+        if (response.ok) {
+          const data = await response.json()
+          appStateContext?.dispatch({
+            type: 'UPDATE_CURRENT_USER_ID',
+            payload: data.userId
+          })
         }
-    };
-    fetchUserId();
-}, []); 
+      } catch (error) {
+        console.error('Error fetching user ID:', error)
+      }
+    }
+    fetchUserId()
+  }, [])
 
   const errorDialogContentProps = {
     type: DialogType.close,
@@ -103,7 +102,7 @@ const Chat = () => {
   const NO_CONTENT_ERROR = 'No content in messages object.'
 
   const handleModelToggle = async (): Promise<void> => {
-    const newModelKey = selectedModel === 'gpt-35-turbo' ? 'gpt-4o' :'gpt-35-turbo';
+    const newModelKey = selectedModel === 'gpt-35-turbo' ? 'gpt-4o' : 'gpt-35-turbo'
     setSelectedModel(newModelKey)
 
     const res = await fetch('/change_model', {
@@ -111,31 +110,31 @@ const Chat = () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({selectedModel: newModelKey})
-    });
+      body: JSON.stringify({ selectedModel: newModelKey })
+    })
 
-    if (res.status !== 200){
-      console.error('Failed to change model.');
+    if (res.status !== 200) {
+      console.error('Failed to change model.')
     }
-  };
+  }
 
   useEffect(() => {
     const fetchUserId = async () => {
-        try {
-            const response = await fetch('/get_user_id');
-            if (response.ok) {
-                const data = await response.json();
-                appStateContext?.dispatch({
-                    type: 'UPDATE_CURRENT_USER_ID',
-                    payload: data.userId,
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching user ID:', error);
+      try {
+        const response = await fetch('/get_user_id')
+        if (response.ok) {
+          const data = await response.json()
+          appStateContext?.dispatch({
+            type: 'UPDATE_CURRENT_USER_ID',
+            payload: data.userId
+          })
         }
-    };
-    fetchUserId();
-  }, []); 
+      } catch (error) {
+        console.error('Error fetching user ID:', error)
+      }
+    }
+    fetchUserId()
+  }, [])
 
   useEffect(() => {
     if (
@@ -164,37 +163,40 @@ const Chat = () => {
     setIsLoading(appStateContext?.state.chatHistoryLoadingState === ChatHistoryLoadingState.Loading)
   }, [appStateContext?.state.chatHistoryLoadingState])
 
-  const fetchTokenUsagePercentage = async (): Promise<number | null> => {
+  const fetchTokenUsagePercentage = async (updateTokenUsage: (percentage: number | null) => void): Promise<number | null> => {
     try {
       const response = await fetch('/get_token_usage_percentage', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
         }
-      });
+      })
   
       if (response.ok) {
-        const data = await response.json();
-        return data.percentage_used;
+        const data = await response.json()
+        updateTokenUsage(data.percentage_used)
+        return data.percentage_used
       } else {
-        console.error('Failed to fetch token usage percentage.');
-        return null;
+        console.error('Failed to fetch token usage percentage.')
+        updateTokenUsage(null)
+        return null
       }
     } catch (error) {
-      console.error('Error fetching token usage percentage:', error);
-      return null;
+      console.error('Error fetching token usage percentage:', error)
+      updateTokenUsage(null)
+      return null
     }
-  };
+  }
+  
 
   useEffect(() => {
     const fetchPercentage = async () => {
-      const percentage = await fetchTokenUsagePercentage();
-      setTokenUsagePercentage(percentage);
-      console.log(percentage); 
-    };
+      const percentage = await fetchTokenUsagePercentage(setTokenUsagePercentage)
+      console.log(percentage)
+    }
   
-    fetchPercentage();
-  }, []);
+    fetchPercentage()
+  }, [])
   
   const getUserInfoList = async () => {
     if (!AUTH_ENABLED) {
@@ -366,6 +368,7 @@ const Chat = () => {
       setShowLoadingMessage(false)
       abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
       setProcessMessages(messageStatus.Done)
+      await fetchTokenUsagePercentage(setTokenUsagePercentage)
     }
 
     return abortController.abort()
@@ -594,6 +597,7 @@ const Chat = () => {
       setShowLoadingMessage(false)
       abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
       setProcessMessages(messageStatus.Done)
+      await fetchTokenUsagePercentage(setTokenUsagePercentage)
     }
     return abortController.abort()
   }
@@ -775,16 +779,16 @@ const Chat = () => {
   }
 
   const onViewSource = (citation: Citation, event: React.MouseEvent<HTMLElement, MouseEvent>) => {
-    event.preventDefault();
-  
+    event.preventDefault()
+
     if (citation.url && !citation.url.includes('blob.core')) {
-      window.open(citation.url, '_blank');
+      window.open(citation.url, '_blank')
     } else if (citation.title) {
-      const cleanedTitle = citation.title.replace(/-Rev\d+|\.pdf/g, '');
-      const url = `https://plmdata-cinc.cookgroup.nao/documents/${cleanedTitle}`;
-      window.open(url, "_blank");
+      const cleanedTitle = citation.title.replace(/-Rev\d+|\.pdf/g, '')
+      const url = `https://plmdata-cinc.cookgroup.nao/documents/${cleanedTitle}`
+      window.open(url, '_blank')
     }
-  };
+  }
 
   const parseCitationFromMessage = (message: ChatMessage) => {
     if (message?.role && message?.role === 'tool') {
@@ -799,22 +803,21 @@ const Chat = () => {
   }
 
   const parsePlotFromMessage = (message: ChatMessage) => {
-    if (message?.role && message?.role === "tool") {
+    if (message?.role && message?.role === 'tool') {
       try {
-        const execResults = JSON.parse(message.content) as AzureSqlServerExecResults;
-        const codeExecResult = execResults.all_exec_results.at(-1)?.code_exec_result;
+        const execResults = JSON.parse(message.content) as AzureSqlServerExecResults
+        const codeExecResult = execResults.all_exec_results.at(-1)?.code_exec_result
         if (codeExecResult === undefined) {
-          return null;
+          return null
         }
-        return codeExecResult;
-      }
-      catch {
-        return null;
+        return codeExecResult
+      } catch {
+        return null
       }
       // const execResults = JSON.parse(message.content) as AzureSqlServerExecResults;
       // return execResults.all_exec_results.at(-1)?.code_exec_result;
     }
-    return null;
+    return null
   }
 
   const disabledButton = () => {
@@ -858,36 +861,40 @@ const Chat = () => {
       ) : (
         <Stack horizontal className={styles.chatRoot}>
           <div className={styles.chatContainer}>
-          <div className={styles.modelToggleContainer}>
-            <span className={styles.modelToggleLabel}>GPT Version</span>
-            <div className={styles.modelToggleButton} onClick={handleModelToggle}>
-              <div className={`${styles.slider}`} style={{ left: selectedModel === 'gpt-35-turbo' ? '5px' : '56px' }}></div>
-              <span 
-                className={`${styles.labelLeft} ${selectedModel === 'gpt-35-turbo' ? styles.toggled : ''}`}
-                data-tooltip-html="<b>GPT-3.5:</b> Delivers efficient and accurate results suitable for most applications.<br><br>
+            <div className={styles.modelToggleContainer}>
+              <span className={styles.modelToggleLabel}>GPT Version</span>
+              <div className={styles.modelToggleButton} onClick={handleModelToggle}>
+                <div
+                  className={`${styles.slider}`}
+                  style={{ left: selectedModel === 'gpt-35-turbo' ? '5px' : '56px' }}></div>
+                <span
+                  className={`${styles.labelLeft} ${selectedModel === 'gpt-35-turbo' ? styles.toggled : ''}`}
+                  data-tooltip-html="<b>GPT-3.5:</b> Delivers efficient and accurate results suitable for most applications.<br><br>
                                     <b>When to use:</b> Best for standard queries, where speed and cost efficiency are priorities."
-                data-tooltip-id="modelTooltip"
-              >
-                GPT-3.5
-              </span>
-              <span 
-                className={`${styles.labelRight} ${selectedModel === 'gpt-4o' ? styles.toggled : ''}`}
-                data-tooltip-html="<b>GPT-4:</b> Offers advanced comprehension and detailed responses, excelling in complex tasks.<br><br>
+                  data-tooltip-id="modelTooltip">
+                  GPT-3.5
+                </span>
+                <span
+                  className={`${styles.labelRight} ${selectedModel === 'gpt-4o' ? styles.toggled : ''}`}
+                  data-tooltip-html="<b>GPT-4:</b> Offers advanced comprehension and detailed responses, excelling in complex tasks.<br><br>
                                     <b>When to use:</b> For in-depth analysis, intricate tasks, and where detail is paramount."
-                data-tooltip-id="modelTooltip"
-                data-html={true}
-              >
-                GPT-4
-              </span>
+                  data-tooltip-id="modelTooltip"
+                  data-html={true}>
+                  GPT-4
+                </span>
+              </div>
             </div>
-          </div>
             {!messages || messages.length < 1 ? (
               <Stack className={styles.chatEmptyState}>
                 <img src={ui?.chat_logo ? ui.chat_logo : CookGPTLogo} className={styles.chatIcon} aria-hidden="true" />
                 <h1 className={styles.chatEmptyStateTitle}>Start exploring OpenAI models with Cook Data.</h1>
                 <h2 className={styles.chatEmptyStateSubtitle}>
-                  This private and internal chatbot is configured to respond to your prompts safely and securely.<br /><br />
-                  GPT-3.5 is the fastest model, great for most everyday tasks ($).<br /><br />
+                  This private and internal chatbot is configured to respond to your prompts safely and securely.
+                  <br />
+                  <br />
+                  GPT-3.5 is the fastest model, great for most everyday tasks ($).
+                  <br />
+                  <br />
                   GPT-4 is the most capable model, great for tasks that require creativity and advanced reasoning ($$$).
                 </h2>
               </Stack>
@@ -930,7 +937,7 @@ const Chat = () => {
                     <div className={styles.chatMessageGpt}>
                       <Answer
                         answer={{
-                          answer: "Generating answer...",
+                          answer: 'Generating answer...',
                           citations: [],
                           plotly_data: null
                         }}
@@ -1024,9 +1031,8 @@ const Chat = () => {
                   onDismiss={handleErrorDialogClose}
                   dialogContentProps={errorDialogContentProps}
                   modalProps={modalProps}></Dialog>
-                 
               </Stack>
-              
+
               <QuestionInput
                 clearOnSend
                 placeholder="Type a new question..."
@@ -1040,26 +1046,25 @@ const Chat = () => {
                   appStateContext?.state.currentChat?.id ? appStateContext?.state.currentChat?.id : undefined
                 }
               />
-                {/*insert code of components here */}
-               {/** test block for the percentage*/}
-               <div className={styles.tokenUsageContainer}>
-      <h3>Token Percentage Used</h3>
-      {tokenUsagePercentage !== null ? (
-        <div>
-          <div>{tokenUsagePercentage}%</div>
-          <ProgressIndicator
-            label=""
-            description=""
-            percentComplete={tokenUsagePercentage / 100}
-            styles={{ itemProgress: { marginTop: '2px' } }}
-          />
-        </div>
-      ) : (
-        <div>Loading...</div>  
-      )}
-    </div>
+              {/*insert code of components here */}
+              {/** test block for the percentage*/}
+              <div className={styles.tokenUsageContainer}>
+                <h3>Tokens Remaining</h3>
+                {tokenUsagePercentage !== null ? (
+                  <div>
+                    <div>{tokenUsagePercentage}%</div>
+                    <ProgressIndicator
+                      label=""
+                      description=""
+                      percentComplete={tokenUsagePercentage / 100}
+                      styles={{ itemProgress: { marginTop: '2px' } }}
+                    />
+                  </div>
+                ) : (
+                  <div>Loading...</div>
+                )}
+              </div>
             </Stack>
-            
           </div>
           {/* Citation Panel */}
           {messages && messages.length > 0 && isCitationPanelOpen && activeCitation && (
@@ -1087,8 +1092,7 @@ const Chat = () => {
                     ? activeCitation.url
                     : activeCitation.title ?? ''
                 }
-                onClick={(event) => onViewSource(activeCitation, event)}
-              >
+                onClick={event => onViewSource(activeCitation, event)}>
                 {activeCitation.title}
               </h5>
               <div tabIndex={0}>
@@ -1120,30 +1124,43 @@ const Chat = () => {
                 />
               </Stack>
               <Stack horizontalAlign="space-between">
-                {execResults.map((execResult) => {
+                {execResults.map(execResult => {
                   return (
                     <Stack className={styles.exectResultList} verticalAlign="space-between">
-                      <><span>Intent:</span> <p>{execResult.intent}</p></>
-                      {execResult.search_query && <><span>Search Query:</span>
-                        <SyntaxHighlighter
-                          style={nord}
-                          wrapLines={true}
-                          lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
-                          language="sql"
-                          PreTag="p">
-                          {execResult.search_query}
-                        </SyntaxHighlighter></>}
-                      {execResult.search_result && <><span>Search Result:</span> <p>{execResult.search_result}</p></>}
-                      {execResult.code_generated && <><span>Code Generated:</span>
-                        <SyntaxHighlighter
-                          style={nord}
-                          wrapLines={true}
-                          lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
-                          language="python"
-                          PreTag="p">
-                          {execResult.code_generated}
-                        </SyntaxHighlighter>
-                      </>}
+                      <>
+                        <span>Intent:</span> <p>{execResult.intent}</p>
+                      </>
+                      {execResult.search_query && (
+                        <>
+                          <span>Search Query:</span>
+                          <SyntaxHighlighter
+                            style={nord}
+                            wrapLines={true}
+                            lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
+                            language="sql"
+                            PreTag="p">
+                            {execResult.search_query}
+                          </SyntaxHighlighter>
+                        </>
+                      )}
+                      {execResult.search_result && (
+                        <>
+                          <span>Search Result:</span> <p>{execResult.search_result}</p>
+                        </>
+                      )}
+                      {execResult.code_generated && (
+                        <>
+                          <span>Code Generated:</span>
+                          <SyntaxHighlighter
+                            style={nord}
+                            wrapLines={true}
+                            lineProps={{ style: { wordBreak: 'break-all', whiteSpace: 'pre-wrap' } }}
+                            language="python"
+                            PreTag="p">
+                            {execResult.code_generated}
+                          </SyntaxHighlighter>
+                        </>
+                      )}
                     </Stack>
                   )
                 })}

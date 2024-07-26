@@ -144,19 +144,19 @@ class TokenLimits:
 
     async def calculate_daily_usage_percentage(self, request_headers):
         logging.info("Calculating daily usage percentage")
-        
+
         # Check user privileges
         user_type = await self.token_privileges.check_user_token_privileges(request_headers)
         if isinstance(user_type, dict) and "error" in user_type:
             logging.error(f"Error in user privileges: {user_type['error']}")
             return user_type
-        
+
         # Get user details
         user_details = get_authenticated_user_details(request_headers)
         if not user_details:
             logging.error("User not authenticated")
             return {"error": "User not authenticated"}
-        
+
         user_id = user_details['user_principal_id']
         logging.info(f"User ID: {user_id}")
 
@@ -165,13 +165,23 @@ class TokenLimits:
         if isinstance(daily_limit, dict) and "error" in daily_limit:
             logging.error(f"Error in daily limit: {daily_limit['error']}")
             return daily_limit
-        
+
         # Get today's token cost
         todays_cost = await self.get_todays_cost(user_id)
         logging.info(f"Today's token cost for user {user_id}: {todays_cost}")
-        
+
         # Calculate percentage of daily limit used
-        percentage_used = (todays_cost / daily_limit) * 100
-        logging.info(f"Percentage of daily limit used: {percentage_used}")
+        if todays_cost == 0:
+            percentage_remaining = 100.0
+        else:
+            percentage_used = (todays_cost / daily_limit) * 100
+            percentage_remaining = max(0, 100 - percentage_used)
         
-        return percentage_used
+        # Round to 1 digit after the decimal
+        percentage_remaining = round(percentage_remaining, 1)
+        
+        logging.info(f"Percentage of daily limit remaining: {percentage_remaining}")
+
+        return percentage_remaining
+
+
