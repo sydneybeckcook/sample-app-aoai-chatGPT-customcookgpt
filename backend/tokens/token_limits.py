@@ -119,11 +119,11 @@ class TokenLimits:
     
     def calculate_token_cost(self, tokens, model_used):
         if model_used.startswith('gpt-35-turbo'):
-            input_cost = 0.003 / 1000  # $0.003 per 1,000 tokens
-            output_cost = 0.004 / 1000  # $0.004 per 1,000 tokens
+            input_cost = 0.0005 / 1000  # $0.003 per 1,000 tokens
+            output_cost = 0.0015 / 1000  # $0.004 per 1,000 tokens
         elif model_used.startswith('gpt-4o'):
-            input_cost = 0.01 / 1000  # $0.01 per 1,000 tokens
-            output_cost = 0.03 / 1000  # $0.03 per 1,000 tokens
+            input_cost = 0.005 / 1000  # $0.01 per 1,000 tokens
+            output_cost = 0.015 / 1000  # $0.03 per 1,000 tokens
         else:
             raise ValueError("Unknown model")
 
