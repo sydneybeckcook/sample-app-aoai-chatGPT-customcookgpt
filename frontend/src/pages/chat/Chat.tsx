@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useContext, useLayoutEffect } from 'react'
-import { CommandBarButton, IconButton, Dialog, DialogType, Stack } from '@fluentui/react'
+import { CommandBarButton, IconButton, Dialog, DialogType, Stack, ProgressIndicator } from '@fluentui/react'
 import { SquareRegular, ShieldLockRegular, ErrorCircleRegular } from '@fluentui/react-icons'
-import { ProgressIndicator } from '@fluentui/react';
+
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -1024,7 +1024,9 @@ const Chat = () => {
                   onDismiss={handleErrorDialogClose}
                   dialogContentProps={errorDialogContentProps}
                   modalProps={modalProps}></Dialog>
+                 
               </Stack>
+              
               <QuestionInput
                 clearOnSend
                 placeholder="Type a new question..."
@@ -1039,7 +1041,23 @@ const Chat = () => {
                 }
               />
                 {/*insert code of components here */}
-              
+               {/** test block for the percentage*/}
+               <div className={styles.tokenUsageContainer}>
+      <h3>Token Percentage Used</h3>
+      {tokenUsagePercentage !== null ? (
+        <div>
+          <div>{tokenUsagePercentage}%</div>
+          <ProgressIndicator
+            label=""
+            description=""
+            percentComplete={tokenUsagePercentage / 100}
+            styles={{ itemProgress: { marginTop: '2px' } }}
+          />
+        </div>
+      ) : (
+        <div>Loading...</div>  // You can replace this with any loading indicator you prefer
+      )}
+    </div>
             </Stack>
             
           </div>
