@@ -602,8 +602,19 @@ async def get_user_token_daily_limit(request_headers):
     finally:
         await cosmos_token_client.cosmosdb_client.close()
 
-
-
+async def get_token_usage_percentage(request_headers):
+    cosmos_token_client = init_cosmos_token_client()
+    try:
+        token_limits = TokenLimits(cosmos_token_client)
+        percentage_used = await token_limits.calculate_daily_usage_percentage(request_headers)
+        
+        if isinstance(percentage_used, dict) and "error" in percentage_used:
+            logging.error(f"get_token_usage_percentage - error: {percentage_used['error']}")
+            return jsonify(percentage_used), 400
+        
+        return jsonify({"percentage_used": percentage_used}), 200
+    finally:
+        await cosmos_token_client.cosmosdb_client.close()
 
 async def complete_chat_request(request_body, request_headers):
     if app_settings.base_settings.use_promptflow:
@@ -747,7 +758,6 @@ def get_frontend_settings():
     except Exception as e:
         logging.exception("Exception in /frontend_settings")
         return jsonify({"error": str(e)}), 500
-
 
 # @bp.route('/api/settings/<user_id>', methods=['GET', 'POST'])
 # async def user_settings(user_id):
@@ -1247,6 +1257,15 @@ async def ensure_cosmos():
         else:
             return jsonify({"error": "CosmosDB is not working"}), 500
 
+@bp.route("/get_token_usage_percentage", methods=["GET"])
+async def token_usage_percentage():
+    try:
+        return await get_token_usage_percentage(request.headers)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 async def generate_title(conversation_messages) -> str:
     ## make sure the messages are sorted by _ts descending
