@@ -458,8 +458,6 @@ a {
   }
 }
 
-
-
 .tokenUsageContainer {
   text-align: left;
   padding: 10px;
@@ -467,7 +465,7 @@ a {
   width: 200px;
   z-index: 1000;
   position: absolute;
-  left: 105%;
+  left: 101%;
   right: 30px;
   bottom: -2rem;
 }
