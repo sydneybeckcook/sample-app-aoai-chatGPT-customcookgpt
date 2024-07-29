@@ -21,7 +21,8 @@ const DatasourceSelect: React.FC<DatasourceSelectProps> = ({
     { key: 'none', text: 'None' },
     { key: 'cinc-qms-documents', text: 'CINC QMS Documents' },
     { key: 'cinc-manu-proce-documents', text: 'CINC Manufacturing Procedures' },
-    { key: 'marketing', text: 'Marketing' },
+    { key: 'cinc-fda-audit-documents', text: 'CINC FDA Audit 2024 Documents' },
+    { key: 'cmms-agile-documents', text: 'CMMS Agile Documents' },
   ];
 
   const onChangeDataSource = (
