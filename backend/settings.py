@@ -72,6 +72,7 @@ class _ChatHistorySettings(BaseSettings):
     database_tokens:str
     database_privacy_notice: str
     database_settings: str
+    database_errors: str
 
 
     conversations_container: str
@@ -85,6 +86,8 @@ class _ChatHistorySettings(BaseSettings):
     container_responses: str
     
     container_settings: str
+
+    container_errors : str
 
 class _PromptflowSettings(BaseSettings):
     model_config = SettingsConfigDict(
