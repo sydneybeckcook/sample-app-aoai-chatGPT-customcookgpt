@@ -535,3 +535,19 @@ export const shareConversation = async (conversationId: string): Promise<string 
 
   return response;
 };
+
+
+
+export const sendErrorToBackend = async (errorDetails) => {
+  try {
+    await fetch('/api/logError', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(errorDetails),
+    });
+  } catch (err) {
+    console.error('Failed to send error details to backend', err);
+  }
+};

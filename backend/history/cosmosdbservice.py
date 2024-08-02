@@ -483,3 +483,35 @@ class CosmosSettingsClient:
         resp = await self.settings_container_client.upsert_item(new_settings_document)
         return resp
 
+class CosmosErrorsClient:
+    def __init__(self, cosmosdb_endpoint: str, credential: any, database_name: str, errors_container_name: str):
+        self.cosmosdb_endpoint = cosmosdb_endpoint
+        self.credential = credential
+        self.database_name = database_name
+        self.settings_container_name = errors_container_name
+        self.cosmosdb_client = CosmosClient(self.cosmosdb_endpoint, credential=credential)
+        self.database_client = self.cosmosdb_client.get_database_client(database_name)
+        self.errors_container_client = self.database_client.get_container_client(errors_container_name)
+
+        
+    async def get_errors_for_user(self, user_id):
+        query = f"SELECT * FROM c WHERE c.userId = @userId AND c.type = 'errorInfo'"
+        parameters = [{"name": "@userId", "value": user_id}]
+        errors_list =[]
+        async for entry in self.errors_container_client.query_items(query=query, parameters=parameters):
+            errors_list.append(entry)
+        return errors_list if errors_list else None
+
+    async def upsert_error_for_user(self, user_id, errorMessage, userMessage, conversationId):
+        error_entry = {
+            "id": "error-info-" + str(uuid.uuid4()),
+            "type": "errorInfo",
+            "userId": user_id,
+            "errorMessage": errorMessage,
+            "conversationId":conversationId,
+            "userMessage": userMessage,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+        resp = await self.errors_container_client.upsert_item(error_entry)
+        return resp
