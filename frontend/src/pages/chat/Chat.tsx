@@ -38,6 +38,7 @@ import { QuestionInput } from "../../components/QuestionInput";
 import { ChatHistoryPanel } from "../../components/ChatHistory/ChatHistoryPanel";
 import { AppStateContext } from "../../state/AppProvider";
 import { useBoolean } from "@fluentui/react-hooks";
+import { error } from 'console'
 
 const enum messageStatus {
   NotRunning = 'Not Running',
@@ -355,50 +356,67 @@ const Chat = () => {
     let request: ConversationRequest
     let conversation
     if (conversationId) {
+      console.log('Searching for conversation with ID:', conversationId);
       conversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
+      console.log('Found conversation:', conversation)
       appStateContext?.dispatch({ 
         type: 'UPDATE_CURRENT_CONVERSATION_ID', 
         payload: conversationId 
       });
+      console.log('Dispatched UPDATE_CURRENT_CONVERSATION_ID with payload:', conversationId);
       if (!conversation) {
         console.error('Conversation not found.')
         setIsLoading(false)
         setShowLoadingMessage(false)
         abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+        console.log('Abort controller removed from abortFuncs.current');
         return
       } else {
         conversation.messages.push(userMessage)
+        console.log('Added user message to conversation:', userMessage);
         request = {
           messages: [...conversation.messages.filter(answer => answer.role !== ERROR)]
         }
+        console.log('Constructed request object for existing conversation:', request);
       }
     } else {
+      console.log('No conversationId provided, starting a new conversation');
       request = {
         messages: [userMessage].filter(answer => answer.role !== ERROR)
       }
+      console.log('Constructed request object for new conversation:', request);
       setMessages(request.messages)
+      console.log('Updated state with new messages:', request.messages);
+  
     }
     let result = {} as ChatResponse
     var errorResponseMessage = 'Please try again. If the problem persists, please contact the site administrator.'
     try {
+      console.log("conversationId", conversationId)
       const response = conversationId
         ? await historyGenerate(request, abortController.signal, conversationId)
         : await historyGenerate(request, abortController.signal)
+        console.log("response from historyGenerate", response)
         if (conversationId) 
           appStateContext?.dispatch({ 
               type: 'UPDATE_CURRENT_CONVERSATION_ID', 
               payload: conversationId
         });
       if (!response?.ok) {
+        console.log("response not ok")
         const responseJson = await response.json()
+
         errorResponseMessage =
-          responseJson.error === undefined ? errorResponseMessage : parseErrorMessage(responseJson.error)
+          responseJson.error === undefined 
+          ? 'The server returned an unsuccessful response from /history/generate.' 
+          : parseErrorMessage(responseJson.error)
         let errorChatMsg: ChatMessage = {
           id: uuid(),
           role: ERROR,
           content: `There was an error generating a response: ${errorResponseMessage}`,
           date: new Date().toISOString()
         }
+        console.log("errorResponseMessage", errorResponseMessage)
         let resultConversation
         if (conversationId) {
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
@@ -408,6 +426,7 @@ const Chat = () => {
           });
           if (!resultConversation) {
             console.error('Conversation not found.')
+            errorChatMsg.content += ` Also, conversation with ID ${conversationId} not found.`
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
@@ -437,14 +456,17 @@ const Chat = () => {
 
           var text = new TextDecoder('utf-8').decode(value)
           const objects = text.split('\n')
+          console.log("objects", objects)
           objects.forEach(obj => {
             try {
+              console.log("obj", obj)
               if (obj !== '' && obj !== '{}') {
                 runningText += obj
                 result = JSON.parse(runningText)
                 if (!result.choices?.[0]?.messages?.[0].content) {
                   errorResponseMessage = NO_CONTENT_ERROR
-                  throw Error()
+                  throw Error(errorResponseMessage)
+                  // throw Error()
                 }
                 if (result.choices?.length > 0) {
                   result.choices[0].messages.forEach(msg => {
@@ -462,11 +484,13 @@ const Chat = () => {
               } else if (result.error) {
                 throw Error(result.error)
               }
+              
             } catch (e) {
               if (!(e instanceof SyntaxError)) {
                 console.error(e)
                 throw e
               } else {
+                errorResponseMessage = `SyntaxError: ${e.message} likely in JSON.parse() method.`
                 console.log('Incomplete message. Continuing...')
               }
             }
@@ -514,10 +538,12 @@ const Chat = () => {
         if (result.error?.message) {
           errorMessage = result.error.message
         } else if (typeof result.error === 'string') {
+          console.log("errorMessage type is string")
           errorMessage = result.error
         }
 
         errorMessage = parseErrorMessage(errorMessage)
+        console.log("parsed errorMessage", errorMessage)
 
         let errorChatMsg: ChatMessage = {
           id: uuid(),
@@ -530,6 +556,7 @@ const Chat = () => {
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
           if (!resultConversation) {
             console.error('Conversation not found.')
+            errorChatMsg.content += ` Also, conversation with ID ${conversationId} not found.`
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
@@ -539,6 +566,7 @@ const Chat = () => {
         } else {
           if (!result.history_metadata) {
             console.error('Error retrieving data.', result)
+            errorMessage += ' Also, error retrieving data, history_metadata could not be found.'
             let errorChatMsg: ChatMessage = {
               id: uuid(),
               role: ERROR,

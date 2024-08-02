@@ -146,6 +146,107 @@ export const historyGenerate = async (
   return response
 }
 
+//   // Simulated mock response with status 200
+//   const mockResponseData = [
+//     '{"apim-request-id":"c1950af5-e810-46b8-bb3a-4590f7740088","choices":[{"messages":[{"content":"{\\"citations\\": [], \\"intent\\": \\"[\\"One sentence jokes\\", \\"Short jokes for entertainment\\"]\\"}","role":"tool"},{"content":"I\'m sorry, but I couldn\'t find any jokes in the retrieved documents. Would you like me to try coming up with a joke for you?","role":"assistant"}]}],"created":1722607174,"history_metadata":{"conversation_id":"d7d349a0-562d-4cd0-94cc-4f8e23a6d4d0"},"id":"c02e458a-f007-4ab3-ad4a-7b5ac999a1c6","model":"gpt-35-turbo","object":"extensions.chat.completion","error":"Connies fake error message"}',
+//     ''
+//   ].join('\n');
+
+//   const mockResponse = new Response(
+//     mockResponseData,
+//     {
+//       status: 200,
+//       headers: { 'Content-Type': 'application/json' }
+//     }
+//   );
+
+//   return mockResponse;
+// }
+// export const historyGenerate = async (
+//   options: ConversationRequest,
+//   abortSignal: AbortSignal,
+//   convId?: string
+// ): Promise<Response> => {
+//   let body;
+//   if (convId) {
+//     body = JSON.stringify({
+//       conversation_id: convId,
+//       messages: options.messages
+//     });
+//   } else {
+//     body = JSON.stringify({
+//       messages: options.messages
+//     });
+//   }
+
+//   // Simulate different error responses
+//   // const mockNetworkErrorResponse = () => { throw new TypeError('Network Error'); };
+//   const mockSyntaxErrorResponse = new Response(
+//     new ReadableStream({
+//       start(controller) {
+//         const encoder = new TextEncoder();
+//         // Incomplete JSON string to cause SyntaxError
+//         controller.enqueue(encoder.encode('{"choices":[{"messages":[{"content":'));
+//         controller.close();
+//       }
+//     }),
+//     {
+//       headers: { 'Content-Type': 'application/json' }
+//     }
+//   );
+
+//   //This one to simulate the if response.ok is false and does not use the default by sending "simulated error for testing"
+//   const mockErrorResponse = new Response(
+//     JSON.stringify({ error: "Simulated error for testing" }),
+//     {
+//       status: 500,
+//       headers: { 'Content-Type': 'application/json' }
+//     }
+//   );
+
+//   // This one to simulate a successful resposne bod but response has error
+//   // Simulate a response with content and an error field to trigger the error handling
+//   const mocksuccessfulErrorResponse = new Response(
+//     JSON.stringify({
+//       choices: [
+//         {
+//           messages: [
+//             {
+//               content: "This is a valid message."
+//             }
+//           ]
+//         }
+//       ],
+//       error: "Simulated error for testing"
+//     }),
+//     {
+//       status: 200,
+//       headers: { 'Content-Type': 'application/json' }
+//     }
+//   );
+
+//     const mockNoContentResponse = new Response(
+//       JSON.stringify({
+//         choices: [{}] // Simulating no content in choices
+//       }),
+//       {
+//         status: 200,
+//         headers: { 'Content-Type': 'application/json' }
+//       }
+//     );
+  
+
+//   // Uncomment the line below for the type of error you want to test
+//   return mockNetworkErrorResponse(); // Uncomment to simulate a network error
+//   // return mockSyntaxErrorResponse; // Uncomment to simulate a syntax error
+//   // return mockErrorResponse; // Default to simulate a generic error for response no ok
+//   // return mocksuccessfulErrorResponse; // Uncomment to simulate body with error error
+//   // return mockNoContentResponse; //Uncomment to simulat no content error
+// };
+
+
+
+
 export const historyUpdate = async (messages: ChatMessage[], convId: string): Promise<Response> => {
   const response = await fetch('/history/update', {
     method: 'POST',
