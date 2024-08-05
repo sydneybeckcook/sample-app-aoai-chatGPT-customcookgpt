@@ -26,7 +26,7 @@ from azure.identity.aio import (
 )
 from backend.auth.auth_utils import get_authenticated_user_details
 from backend.security.ms_defender_utils import get_msdefender_user_json
-from backend.history.cosmosdbservice import CosmosConversationClient, CosmosPrivacyNoticeClient, CosmosSettingsClient, CosmosTokenClient
+from backend.history.cosmosdbservice import CosmosConversationClient, CosmosPrivacyNoticeClient, CosmosSettingsClient, CosmosTokenClient, CosmosErrorsClient
 from backend.settings import (
     app_settings,
     MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
@@ -290,6 +290,20 @@ def init_cosmos_settings_client():
         )
     except Exception as e:
         logging.exception("Exception in CosmosSettingsClient initialization", e)
+        return None
+    
+
+def init_cosmos_errors_client():
+    try:
+        cosmosdb_endpoint, credentials= prepare_cosmosdb_client_parameters()
+        return CosmosErrorsClient(
+            cosmosdb_endpoint=cosmosdb_endpoint,
+            credential=credentials,
+            database_name=f"{app_settings.chat_history.database_errors}",
+            errors_container_name=f"{app_settings.chat_history.container_errors}"
+        )
+    except Exception as e:
+        logging.exception("Exception in CosmosErrorsClient initialization", e)
         return None
     
 @bp.route("/get_user_id", methods=["GET"])
@@ -704,6 +718,7 @@ async def stream_chat_request(request_body, request_headers):
 
 async def conversation_internal(request_body, request_headers):
     try:
+        raise Exception("test raise excpetion in conversation_internal")
         token_limits_error_msg = await check_user_token_limits(request_headers)
         if token_limits_error_msg: 
             return token_limits_error_msg
@@ -1313,7 +1328,28 @@ async def get_shared_conversation(shared_conversation_id):
     finally:
         await cosmos_conversation_client.cosmosdb_client.close()
 
+@bp.route("/api/upsert_error", methods=["POST"])
+async def log_error():
+    data = await request.get_json()
+    error_message = data.get("error_message")
+    user_id = data.get("user_id")
+    user_message = data.get("user_message")
+    conversation_id = data.get("conversation_id")
 
+    try:
+        cosmos_errors_client = init_cosmos_errors_client()
+        if cosmos_errors_client is None:
+            raise Exception("CosmosErrorsClient initialization failed")
+
+        error_log = await cosmos_errors_client.upsert_error_for_user(user_id, error_message, user_message, conversation_id)
+        logging.debug(f"error_log: {error_log}")
+        return jsonify({"message": "Error upserted to CosmosDB successfully"}), 200
+    except Exception as e:
+        logging.exception("Exception in /api/log_error")
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if cosmos_errors_client:
+            await cosmos_errors_client.cosmosdb_client.close()
 
 app = create_app()
 

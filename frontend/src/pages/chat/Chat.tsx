@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useContext, useLayoutEffect } from 'react'
 import { CommandBarButton, IconButton, Dialog, DialogType, Stack } from '@fluentui/react'
-import { SquareRegular, ShieldLockRegular, ErrorCircleRegular } from '@fluentui/react-icons'
+import { SquareRegular, ShieldLockRegular, ErrorCircleRegular, ShapeIntersectRegular } from '@fluentui/react-icons'
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -32,6 +32,7 @@ import {
   CosmosDBStatus,
   ErrorMessage,
   ExecResults,
+  sendErrorToBackend
 } from "../../api";
 import { Answer } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -351,7 +352,12 @@ const Chat = () => {
       content: question,
       date: new Date().toISOString()
     }
-
+    
+    let userId: string | undefined = appStateContext?.state?.currentUserId ?? undefined;
+    userId = userId ? userId : "none";
+    console.log("userId", userId)
+    console.log("conversationId", conversationId)
+  
     //api call params set here (generate)
     let request: ConversationRequest
     let conversation
@@ -370,6 +376,12 @@ const Chat = () => {
         setShowLoadingMessage(false)
         abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
         console.log('Abort controller removed from abortFuncs.current');
+        await sendErrorToBackend(
+          'Conversation not found for this conversation ID',
+          userMessage.content,
+          userId,
+          conversationId
+        );
         return
       } else {
         conversation.messages.push(userMessage)
@@ -430,6 +442,12 @@ const Chat = () => {
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+            await sendErrorToBackend(
+              errorChatMsg.content,
+              userMessage.content,
+              userId,
+              conversationId
+            )
             return
           }
           resultConversation.messages.push(errorChatMsg)
@@ -438,14 +456,27 @@ const Chat = () => {
           setIsLoading(false)
           setShowLoadingMessage(false)
           abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+          await sendErrorToBackend(
+            errorChatMsg.content + ' Also, no conversationId found',
+            userMessage.content,
+            userId,
+            "none"
+          )
           return
         }
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CONVERSATION_ID', payload: conversationId })
         setMessages([...resultConversation.messages])
+        await sendErrorToBackend(
+          errorChatMsg.content,
+          userMessage.content,
+          userId,
+          conversationId
+        )
         return
       }
       if (response?.body) {
+        console.log("checking response body")
         const reader = response.body.getReader()
 
         let runningText = ''
@@ -505,6 +536,12 @@ const Chat = () => {
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+            await sendErrorToBackend(
+              errorResponseMessage +` Also, conversation with ID ${conversationId} not found.`,
+              userMessage.content,
+              userId,
+              conversationId
+            )
             return
           }
           isEmpty(toolMessage)
@@ -525,6 +562,12 @@ const Chat = () => {
           setIsLoading(false)
           setShowLoadingMessage(false)
           abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+          await sendErrorToBackend(
+            errorResponseMessage + ' Also, there is an issue defining resultConversation, likely issue with response from historyGenerate and response handling.',
+            userMessage.content,
+            userId,
+            "none"
+          )
           return
         }
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
@@ -553,6 +596,7 @@ const Chat = () => {
         }
         let resultConversation
         if (conversationId) {
+          console.log("conversationId exists")
           resultConversation = appStateContext?.state?.chatHistory?.find(conv => conv.id === conversationId)
           if (!resultConversation) {
             console.error('Conversation not found.')
@@ -560,10 +604,17 @@ const Chat = () => {
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+            await sendErrorToBackend(
+              errorChatMsg.content,
+              userMessage.content,
+              userId,
+              conversationId
+            )
             return
           }
           resultConversation.messages.push(errorChatMsg)
         } else {
+          console.log("no conversationId")
           if (!result.history_metadata) {
             console.error('Error retrieving data.', result)
             errorMessage += ' Also, error retrieving data, history_metadata could not be found.'
@@ -577,6 +628,12 @@ const Chat = () => {
             setIsLoading(false)
             setShowLoadingMessage(false)
             abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+            await sendErrorToBackend(
+              errorChatMsg.content,
+              userMessage.content,
+              userId,
+              "none"
+            )
             return
           }
           resultConversation = {
@@ -591,6 +648,12 @@ const Chat = () => {
           setIsLoading(false)
           setShowLoadingMessage(false)
           abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+          await sendErrorToBackend(
+            errorChatMsg.content + ' Also, there is an issue defining resultConversation, likely issue with response from historyGenerate and/or response handling and check if history_metadata field of response is empty.',
+            userMessage.content,
+            userId,
+            conversationId ? conversationId : "none"
+          )
           return
         }
         appStateContext?.dispatch({ type: 'UPDATE_CURRENT_CHAT', payload: resultConversation })
@@ -720,10 +783,26 @@ const Chat = () => {
       return response
     }
 
+
+    const handleErrors = async (
+      errorMessage :string,  
+      userId: string = appStateContext?.state?.currentUserId ?? "none", 
+      conversationId: string = appStateContext?.state?.currentUserId ?? "none"
+    ) => {
+      await sendErrorToBackend(
+          errorMessage,
+          "n/a",
+          userId,
+          conversationId
+      );
+  };
+
+
     if (appStateContext && appStateContext.state.currentChat && processMessages === messageStatus.Done) {
       if (appStateContext.state.isCosmosDBAvailable.cosmosDB) {
         if (!appStateContext?.state.currentChat?.messages) {
           console.error('Failure fetching current chat state.')
+          handleErrors("Failure fetching current chat state")
           return
         }
         const noContentError = appStateContext.state.currentChat.messages.find(m => m.role === ERROR)
@@ -733,7 +812,7 @@ const Chat = () => {
             .then(res => {
               if (!res.ok) {
                 let errorMessage =
-                  "An error occurred. Answers can't be saved at this time. If the problem persists, please contact the site administrator."
+                  "An error occurred. Answers can't be saved at this time. Likely a problem with response from /history/update. If the problem persists, please contact the site administrator."
                 let errorChatMsg: ChatMessage = {
                   id: uuid(),
                   role: ERROR,
@@ -743,21 +822,24 @@ const Chat = () => {
                 if (!appStateContext?.state.currentChat?.messages) {
                   let err: Error = {
                     ...new Error(),
-                    message: 'Failure fetching current chat state.'
+                    message: `Failure fetching current chat state. Also, ${errorMessage}`
                   }
                   throw err
                 }
                 setMessages([...appStateContext?.state.currentChat?.messages, errorChatMsg])
+                handleErrors(errorChatMsg.content)
               }
               return res as Response
             })
             .catch(err => {
               console.error('Error: ', err)
+              handleErrors(err.message)
               let errRes: Response = {
                 ...new Response(),
                 ok: false,
                 status: 500
               }
+              
               return errRes
             })
         }

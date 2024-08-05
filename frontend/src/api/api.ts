@@ -128,40 +128,40 @@ export const historyGenerate = async (
       messages: options.messages
     })
   }
-  const response = await fetch('/history/generate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: body,
-    signal: abortSignal
-  })
-    .then(res => {
-      return res
-    })
-    .catch(_err => {
-      console.error('There was an issue fetching your data.')
-      return new Response()
-    })
-  return response
-}
-
-//   // Simulated mock response with status 200
-//   const mockResponseData = [
-//     '{"apim-request-id":"c1950af5-e810-46b8-bb3a-4590f7740088","choices":[{"messages":[{"content":"{\\"citations\\": [], \\"intent\\": \\"[\\"One sentence jokes\\", \\"Short jokes for entertainment\\"]\\"}","role":"tool"},{"content":"I\'m sorry, but I couldn\'t find any jokes in the retrieved documents. Would you like me to try coming up with a joke for you?","role":"assistant"}]}],"created":1722607174,"history_metadata":{"conversation_id":"d7d349a0-562d-4cd0-94cc-4f8e23a6d4d0"},"id":"c02e458a-f007-4ab3-ad4a-7b5ac999a1c6","model":"gpt-35-turbo","object":"extensions.chat.completion","error":"Connies fake error message"}',
-//     ''
-//   ].join('\n');
-
-//   const mockResponse = new Response(
-//     mockResponseData,
-//     {
-//       status: 200,
-//       headers: { 'Content-Type': 'application/json' }
-//     }
-//   );
-
-//   return mockResponse;
+//   const response = await fetch('/history/generate', {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json'
+//     },
+//     body: body,
+//     signal: abortSignal
+//   })
+//     .then(res => {
+//       return res
+//     })
+//     .catch(_err => {
+//       console.error('There was an issue fetching your data.')
+//       return new Response()
+//     })
+//   return response
 // }
+
+  // Simulated mock response with status 200
+  const mockResponseData = [
+    '{"history_metadata":{"conversation_id":"d7d349a0-562d-4cd0-94cc-4f8e23a6d4d0"}, "apim-request-id":"c1950af5-e810-46b8-bb3a-4590f7740088","choices":[{"messages":[{"content":"{\\"citations\\": [], \\"intent\\": \\"[\\"One sentence jokes\\", \\"Short jokes for entertainment\\"]\\"}","role":"tool"},{"content":"I\'m sorry, but I couldn\'t find any jokes in the retrieved documents. Would you like me to try coming up with a joke for you?","role":"assistant"}]}],"created":1722607174,"id":"c02e458a-f007-4ab3-ad4a-7b5ac999a1c6","model":"gpt-35-turbo","object":"extensions.chat.completion","error":"Connies fake error message"}',
+    ''
+  ].join('\n');
+
+  const mockResponse = new Response(
+    mockResponseData,
+    {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }
+  );
+
+  return mockResponse;
+}
 // export const historyGenerate = async (
 //   options: ConversationRequest,
 //   abortSignal: AbortSignal,
@@ -538,16 +538,35 @@ export const shareConversation = async (conversationId: string): Promise<string 
 
 
 
-export const sendErrorToBackend = async (errorDetails) => {
+export const sendErrorToBackend = async (
+  error_message: string,
+  user_message: string,
+  user_id?: string,
+  conversation_id?: string | null
+): Promise<Response> => {
+  const payload = {
+    error_message: error_message,
+    user_message: user_message,
+    user_id: user_id || null,
+    conversation_id: conversation_id || null
+  };
+  
   try {
-    await fetch('/api/logError', {
+    const response = await fetch('/api/upsert_error', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(errorDetails),
+      body: JSON.stringify(payload)
     });
-  } catch (err) {
-    console.error('Failed to send error details to backend', err);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to upsert error: ${response.statusText}`);
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Error sending error message to backend:', error);
+    throw error;
   }
 };
