@@ -718,7 +718,6 @@ async def stream_chat_request(request_body, request_headers):
 
 async def conversation_internal(request_body, request_headers):
     try:
-        raise Exception("test raise excpetion in conversation_internal")
         token_limits_error_msg = await check_user_token_limits(request_headers)
         if token_limits_error_msg: 
             return token_limits_error_msg
