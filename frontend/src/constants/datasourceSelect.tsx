@@ -19,10 +19,10 @@ const DatasourceSelect: React.FC<DatasourceSelectProps> = ({
 }) => {
   const options: IChoiceGroupOption[] = [
     { key: 'none', text: 'None' },
-    { key: 'cinc-qms-documents', text: 'CINC QMS Documents' },
-    { key: 'cinc-manu-proce-documents', text: 'CINC Manufacturing Procedures' },
-    { key: 'cinc-fda-audit-documents', text: 'CINC FDA Audit 2024 Documents' },
-    { key: 'cmms-agile-documents', text: 'CMMS Agile Documents' },
+    { key: 'cinc-qms-documents-index', text: 'CINC QMS Documents' },
+    { key: 'cinc-manu-proce-documents-index', text: 'CINC Manufacturing Procedures' },
+    { key: 'cinc-fda-audit-documents-index', text: 'CINC FDA Audit 2024 Documents' },
+    { key: 'cmms-agile-documents-index', text: 'CMMS Agile Documents' },
   ];
 
   const onChangeDataSource = (

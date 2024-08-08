@@ -304,7 +304,7 @@ class _AzureSearchSettings(BaseSettings, DatasourcePayloadConstructor):
     index: str = Field(serialization_alias="index_name")
     key: Optional[str] = Field(default=None, exclude=True)
     use_semantic_search: bool = Field(default=False, exclude=True)
-    semantic_search_config: str = Field(default="", serialization_alias="semantic_configuration")
+    semantic_search_config: str = Field(default="my-semantic-config", serialization_alias="semantic_configuration")
     content_columns: Optional[List[str]] = Field(default=None, exclude=True)
     vector_columns: Optional[List[str]] = Field(default=None, exclude=True)
     title_column: Optional[str] = Field(default=None, exclude=True)
@@ -800,6 +800,10 @@ class _AppSettings(BaseModel):
             elif self.base_settings.datasource_type == "AzureSqlServer":
                 self.datasource = _AzureSqlServerSettings(settings=self, _env_file=DOTENV_PATH)
                 logging.debug("Using SQL Server")
+
+            elif self.base_settings.datasource_type == "Not Using Data":
+                self.datasource = None
+                logging.debug("Not using a datasource")
             
                 
             else:
@@ -837,7 +841,7 @@ class _AppSettings(BaseModel):
                 logging.info(f"Index for Elasticsearch set to {index}")
             # elif isinstance(self.datasource, _AzureMLIndexSettings):
             #     self.datasource.index = index
-                logging.info(f"Index for Azure ML Index set to {index}")
+                # logging.info(f"Index for Azure ML Index set to {index}")
             # elif isinstance(self.datasource, _AzureSqlServerSettings):
             #   
             #     self.datasource.index = index

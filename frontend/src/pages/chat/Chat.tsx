@@ -32,6 +32,7 @@ import {
   CosmosDBStatus,
   ErrorMessage,
   ExecResults,
+  getDatasource
 } from "../../api";
 import { Answer } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
@@ -351,6 +352,15 @@ const Chat = () => {
       role: 'user',
       content: question,
       date: new Date().toISOString()
+    }
+
+    const datasourceResponse = await getDatasource()
+    if (!datasourceResponse.ok) {
+      console.error('Failed to retrieve datasource.')
+      setIsLoading(false)
+      setShowLoadingMessage(false)
+      abortFuncs.current = abortFuncs.current.filter(a => a !== abortController)
+      return
     }
 
     //api call params set here (generate)

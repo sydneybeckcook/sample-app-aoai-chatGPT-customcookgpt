@@ -1296,11 +1296,13 @@ async def ensure_cosmos():
 
 
 async def generate_title(conversation_messages) -> str:
-    ## make sure the messages are sorted by _ts descending
+    def first_100_words(text):
+        return ' '.join(text.split()[:100])
+
     title_prompt = "Summarize the conversation so far into a 4-word or less title. Do not use any quotation marks or punctuation. Do not include any other commentary or description."
 
     messages = [
-        {"role": msg["role"], "content": msg["content"]}
+        {"role": msg["role"], "content": first_100_words(msg["content"])}
         for msg in conversation_messages
     ]
     messages.append({"role": "user", "content": title_prompt})
@@ -1308,7 +1310,7 @@ async def generate_title(conversation_messages) -> str:
     try:
         azure_openai_client = init_openai_client()
         response = await azure_openai_client.chat.completions.create(
-            model=session.get("AZURE_OPENAI_SELECTED_MODEL", "gpt-35-turbo"), messages=messages, temperature=1, max_tokens=64
+            model="gpt-35-turbo", messages=messages, temperature=1, max_tokens=64
         )
 
         title = response.choices[0].message.content
@@ -1316,7 +1318,7 @@ async def generate_title(conversation_messages) -> str:
     except Exception as e:
         logging.exception("Exception while generating title", e)
         return messages[-2]["content"]
-    
+
 # @bp.route("/set-datasource", methods=["POST"])
 # async def set_datasource():
 #     authenticated_user = get_authenticated_user_details(request_headers=request.headers)
